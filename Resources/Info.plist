@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Option Now</string>
+    <key>CFBundleDisplayName</key>
+    <string>Option Now</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.optionnow.app</string>
+    <key>CFBundleExecutable</key>
+    <string>OptionNow</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <!-- Menu-bar-only accessory app: no Dock icon, never steals focus (PRD §7.5). -->
+    <key>LSUIElement</key>
+    <true/>
+    <!-- Programmatic TranslationSession / LanguageAvailability require macOS 15.0+ (AC-VER-01). -->
+    <key>LSMinimumSystemVersion</key>
+    <string>15.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Option Now</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+</dict>
+</plist>

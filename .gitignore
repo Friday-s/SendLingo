@@ -1,0 +1,20 @@
+# Build artifacts
+.build/
+dist/
+*.app
+*.o
+*.swiftmodule
+DerivedData/
+.swiftpm/
+
+# Compiled test helper binary
+tools/verify
+
+# Internal product docs (not part of the open-source release)
+Option_Now_PRD_v4.2_完整版.docx
+Option_Now_验收标准文档_v1.0.md
+
+# macOS / editor cruft
+.DS_Store
+*.xcuserstate
+*.swp

@@ -1,0 +1,319 @@
+import SwiftUI
+import AppKit
+import Translation
+
+struct TranslatorView: View {
+    @EnvironmentObject var vm: TranslatorViewModel
+    @EnvironmentObject var settings: SettingsStore
+    @EnvironmentObject var history: HistoryStore
+    @EnvironmentObject var langService: LanguagePackService
+
+    @State private var showCopied = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            topBar
+            Divider()
+            if vm.isShowingHistory {
+                HistoryPanel(onClose: { vm.isShowingHistory = false })
+            } else {
+                mainContent
+            }
+        }
+        .frame(minWidth: 300, idealWidth: 420, minHeight: 300, idealHeight: 560)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+        )
+        .preferredColorScheme(settings.theme.colorScheme)
+        // System translation is driven here: a new config (or invalidate) re-runs this.
+        // The action is marked @Sendable so it is nonisolated — the non-Sendable
+        // `session` then stays in one isolation region (it never crosses to the main
+        // actor), which is what Swift 6 strict concurrency requires.
+        .translationTask(vm.config) { @Sendable session in
+            await vm.onSession(session)
+        }
+        .onAppear {
+            vm.requestFocus()
+            Task { await langService.refreshAll() }
+        }
+    }
+
+    // MARK: - Top bar (PRD §9.1)
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            Text("Option Now")
+                .font(.system(size: 13, weight: .semibold))
+            languageMenu
+            statusTag(vm.currentStatus)
+            Spacer()
+            iconButton("clock.arrow.circlepath", help: "历史") { vm.isShowingHistory.toggle() }
+            iconButton("gearshape", help: "设置") {
+                NotificationCenter.default.post(name: .optionNowOpenSettings, object: nil)
+            }
+            iconButton("xmark", help: "关闭") {
+                NotificationCenter.default.post(name: .optionNowHide, object: nil)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    private var languageMenu: some View {
+        Menu {
+            ForEach(AppLanguage.firstBatch) { lang in
+                let status = langService.cachedStatus(for: lang.code)
+                Button {
+                    Task { await vm.selectLanguage(lang.code) }
+                } label: {
+                    Text("\(lang.displayName)  ·  \(status.shortLabel)")
+                }
+                .disabled(!status.isSelectable)
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(AppLanguage.named(vm.targetLanguage).displayName)
+                    .font(.system(size: 12))
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func statusTag(_ status: LocalLanguageStatus) -> some View {
+        if status != .installed && status != .unknown {
+            Text(status.shortLabel)
+                .font(.system(size: 10))
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Color.orange.opacity(0.18), in: Capsule())
+                .foregroundStyle(.orange)
+        }
+    }
+
+    private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 12))
+        }
+        .buttonStyle(.borderless)
+        .help(help)
+    }
+
+    // MARK: - Main content
+
+    private var mainContent: some View {
+        VStack(spacing: 0) {
+            // Draggable divider between the input box and the output box so the user
+            // can freely re-balance their heights.
+            VSplitView {
+                inputArea
+                    .frame(minHeight: 60, idealHeight: 110)
+                VStack(spacing: 0) {
+                    toneBar
+                    translationArea
+                }
+                .frame(minHeight: 90, idealHeight: 300)
+            }
+            Divider()
+            bottomBar
+        }
+        .onExitCommand {
+            NotificationCenter.default.post(name: .optionNowHide, object: nil)
+        }
+    }
+
+    // MARK: - Input (AC-TR-04 / AC-ERR-01/02)
+
+    private var inputArea: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ChineseInputView(text: $vm.inputText,
+                             fontSize: settings.fontSize,
+                             placeholder: "输入中文，实时转换为目标语言",
+                             focusToken: vm.focusToken)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack {
+                if vm.atCharLimit {
+                    Text("已达 1000 字符上限")
+                        .font(.system(size: 10)).foregroundStyle(.orange)
+                }
+                Spacer()
+                Text("\(vm.charCount)/\(TranslatorViewModel.inputCharLimit)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(vm.atCharLimit ? .orange : .secondary)
+            }
+        }
+        .padding(.horizontal, 12).padding(.top, 8)
+    }
+
+    // MARK: - Tone (AC-AI-04) — only relevant when AI entry is shown
+
+    @ViewBuilder
+    private var toneBar: some View {
+        if settings.aiEnabled {
+            HStack {
+                Text("TRANSLATION").font(.system(size: 9, weight: .semibold))
+                    .tracking(1.5).foregroundStyle(.secondary)
+                Spacer()
+                Picker("", selection: $vm.tone) {
+                    ForEach(Tone.allCases) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+            .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 2)
+        } else {
+            HStack {
+                Text("TRANSLATION").font(.system(size: 9, weight: .semibold))
+                    .tracking(1.5).foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 2)
+        }
+    }
+
+    // MARK: - Translation result area
+
+    @ViewBuilder
+    private var translationArea: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                switch vm.phase {
+                case .languagePackRequired:
+                    preparePackView
+                case .preparingLanguagePack:
+                    preparingView
+                default:
+                    resultView
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    private var preparePackView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("需要先准备该目标语言的本地语言包")
+                .font(.system(size: 13)).foregroundStyle(.secondary)
+            Button {
+                vm.prepareLanguagePack()
+            } label: {
+                Label("准备语言包", systemImage: "arrow.down.circle")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    private var preparingView: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text("正在准备语言包…").font(.system(size: 13)).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var resultView: some View {
+        // System translation
+        if !vm.systemTranslation.isEmpty {
+            sectionLabel("系统译文")
+            SelectableTextView(text: vm.systemTranslation, fontSize: settings.fontSize)
+                .frame(minHeight: 40)
+        } else if vm.phase == .translating {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("翻译中…").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+        } else if vm.errorMessage == nil {
+            Text("译文会在这里即时显示")
+                .font(.system(size: 13)).foregroundStyle(.tertiary)
+        }
+
+        // AI optimized translation (streaming)
+        if !vm.aiTranslation.isEmpty || vm.phase == .optimizing {
+            HStack(spacing: 6) {
+                sectionLabel("AI 优化译文")
+                if vm.phase == .optimizing {
+                    ProgressView().controlSize(.mini)
+                }
+            }
+            SelectableTextView(text: vm.aiTranslation, fontSize: settings.fontSize)
+                .frame(minHeight: 40)
+        }
+
+        // Error message (kept below the system translation; AC-AI-06 keeps system text)
+        if let msg = vm.errorMessage {
+            Text(msg)
+                .font(.system(size: 12))
+                .foregroundStyle(.orange)
+                .padding(.top, 2)
+        }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+    }
+
+    // MARK: - Bottom bar (PRD §9.1)
+
+    private var bottomBar: some View {
+        HStack(spacing: 8) {
+            if settings.aiEnabled {
+                Button(action: handleAITap) {
+                    Label("AI 生成", systemImage: "sparkles")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.bordered)
+                .opacity(aiGreyed ? 0.5 : 1)
+                .help(KeychainHelper.hasKey ? "用 DeepSeek 优化当前译文" : "填写 DeepSeek API Key 后可使用")
+            }
+
+            Button(action: copyAll) {
+                Label(showCopied ? "已复制" : "复制",
+                      systemImage: showCopied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.bordered)
+            .disabled(vm.currentTranslationText.isEmpty)
+
+            Spacer()
+
+            Text("Esc 关闭 · \(settings.hotkey.displayString) 开关")
+                .font(.system(size: 10)).foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+    }
+
+    private var aiGreyed: Bool {
+        !KeychainHelper.hasKey || vm.systemTranslation.isEmpty
+    }
+
+    private func handleAITap() {
+        if !KeychainHelper.hasKey {
+            // Visible-but-greyed entry → guide the user to fill the key (AC-AI-01).
+            vm.phase = .failed(.missingKey)
+            NotificationCenter.default.post(name: .optionNowOpenSettings, object: nil)
+            return
+        }
+        guard !vm.systemTranslation.isEmpty else { return }
+        vm.generateAI()
+    }
+
+    private func copyAll() {
+        let text = vm.currentTranslationText
+        guard !text.isEmpty else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        vm.commitCurrentToHistory()
+        showCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            showCopied = false
+        }
+    }
+}
