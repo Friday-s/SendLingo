@@ -35,6 +35,16 @@ final class PlaceholderTextView: NSTextView {
             super.copy(sender)
         }
     }
+
+    /// NSTextView disables the Copy command when nothing is selected, which would
+    /// swallow ⌘C. Keep it enabled whenever there is a translation result to copy, so
+    /// ⌘C (no selection) reaches `copy(_:)` above and copies the result.
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(copy(_:)), selectedRange().length == 0 {
+            return !((resultProvider?() ?? "").isEmpty)
+        }
+        return super.validateUserInterfaceItem(item)
+    }
 }
 
 struct ChineseInputView: NSViewRepresentable {
