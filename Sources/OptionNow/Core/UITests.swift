@@ -43,6 +43,7 @@ enum UITests {
         await windowBehavior(panelController, settings)
         await hotkeyAndToggle(panelController, vm)
         await liveTranslation(vm)
+        await backTranslation(vm)
         await copyLogic(vm)
         await languagePackGuard(vm)
         await aiLayer(vm)
@@ -145,6 +146,24 @@ enum UITests {
         vm.inputText = "   "
         let idle = await waitUntil(2) { vm.phase == .idle && vm.systemTranslation.isEmpty }
         check("AC-TR-05 纯空格不触发翻译", idle)
+    }
+
+    // MARK: - Back-translation (回译校验)
+
+    private static func backTranslation(_ vm: TranslatorViewModel) async {
+        print("-- 回译校验 --")
+        await vm.selectLanguage("en")
+        vm.inputText = "明天上午十点开会"
+        let translated = await waitUntil(6) { vm.phase == .translated && !vm.systemTranslation.isEmpty }
+        guard translated else { check("回译前置：系统翻译成功", false); return }
+        vm.backTranslate()
+        let done = await waitUntil(6) {
+            !vm.isBackTranslating && (!vm.backTranslation.isEmpty || vm.backError != nil)
+        }
+        let hasChinese = vm.backTranslation.unicodeScalars.contains { $0.value >= 0x4E00 && $0.value <= 0x9FFF }
+        check("回译把英文译回中文", done && vm.backError == nil && hasChinese)
+        print("         系统译文: \(vm.systemTranslation)")
+        print("         回译结果: \(vm.backTranslation)")
     }
 
     // MARK: - Copy logic (AC-CP-01/02/03)

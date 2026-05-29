@@ -35,6 +35,10 @@ struct TranslatorView: View {
         .translationTask(vm.config) { @Sendable session in
             await vm.onSession(session)
         }
+        // Second task drives back-translation (目标语 → 中文) for 回译校验.
+        .translationTask(vm.backConfig) { @Sendable session in
+            await vm.onBackSession(session)
+        }
         .onAppear {
             vm.requestFocus()
             Task { await langService.refreshAll() }
@@ -246,6 +250,22 @@ struct TranslatorView: View {
                 .frame(minHeight: 40)
         }
 
+        // Back-translation (回译校验) — verify the meaning of what you're about to send.
+        if vm.isBackTranslating || !vm.backTranslation.isEmpty || vm.backError != nil {
+            HStack(spacing: 6) {
+                sectionLabel("回译校验（中文）")
+                if vm.isBackTranslating { ProgressView().controlSize(.mini) }
+            }
+            if let err = vm.backError {
+                Text(err).font(.system(size: 12)).foregroundStyle(.orange)
+            } else if !vm.backTranslation.isEmpty {
+                SelectableTextView(text: vm.backTranslation,
+                                   fontSize: settings.fontSize,
+                                   textColor: .secondaryLabelColor)
+                    .frame(minHeight: 32)
+            }
+        }
+
         // Error message (kept below the system translation; AC-AI-06 keeps system text)
         if let msg = vm.errorMessage {
             Text(msg)
@@ -272,6 +292,14 @@ struct TranslatorView: View {
                 .opacity(aiGreyed ? 0.5 : 1)
                 .help(KeychainHelper.hasKey ? "用 DeepSeek 优化当前译文" : "填写 DeepSeek API Key 后可使用")
             }
+
+            Button(action: { vm.backTranslate() }) {
+                Label("回译", systemImage: "arrow.uturn.left")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.bordered)
+            .disabled(vm.currentTranslationText.isEmpty || vm.isBackTranslating)
+            .help("把译文再译回中文，核对意思再发")
 
             Button(action: copyAll) {
                 Label(showCopied ? "已复制" : "复制",

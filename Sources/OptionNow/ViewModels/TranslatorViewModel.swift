@@ -30,6 +30,15 @@ final class TranslatorViewModel: ObservableObject {
     @Published var config: TranslationSession.Configuration?
     private var configuredTargetCode: String?
 
+    // Back-translation (回译校验): translate the displayed result back to Chinese so a
+    // non-native user can verify meaning/tone before sending. Lazy — only created on tap.
+    @Published var backTranslation: String = ""
+    @Published var backError: String?
+    @Published var isBackTranslating: Bool = false
+    @Published var backConfig: TranslationSession.Configuration?
+    private var backConfiguredCode: String?
+    private var pendingBackText: String = ""
+
     /// Bumped to ask the view to focus the input field (AC-HK-01).
     @Published var focusToken: Int = 0
 
@@ -82,6 +91,7 @@ final class TranslatorViewModel: ObservableObject {
 
         aiTask?.cancel()
         debounceTask?.cancel()
+        clearBack() // any prior back-translation is now stale
 
         guard isMeaningful(inputText) else {
             // Empty / whitespace / single punctuation → no translation (AC-TR-05/ERR-01).
@@ -113,6 +123,7 @@ final class TranslatorViewModel: ObservableObject {
     func selectLanguage(_ code: String, retranslate: Bool = true) async {
         targetLanguage = code
         aiTranslation = ""
+        clearBack()
         let status = await languageService.refresh(code)
         currentStatus = status
 
@@ -303,6 +314,7 @@ final class TranslatorViewModel: ObservableObject {
         let model = settings.deepseekModel
 
         aiTranslation = ""
+        clearBack()
         phase = .optimizing
         aiTask?.cancel()
         aiTask = Task { @MainActor [weak self] in
@@ -331,6 +343,56 @@ final class TranslatorViewModel: ObservableObject {
                 self.phase = .failed(.providerError(error.localizedDescription))
             }
         }
+    }
+
+    // MARK: - Back-translation (回译校验)
+
+    /// Translate the displayed result (AI if present, else system) back to Chinese so
+    /// the user can verify it before sending. Reverse pair: targetLanguage -> zh-Hans.
+    func backTranslate() {
+        let text = currentTranslationText
+        guard !text.isEmpty else { return }
+        pendingBackText = text
+        backTranslation = ""
+        backError = nil
+        isBackTranslating = true
+        if backConfiguredCode != targetLanguage || backConfig == nil {
+            backConfig = TranslationSession.Configuration(
+                source: Locale.Language(identifier: targetLanguage),
+                target: Locale.Language(identifier: AppLanguage.source.code))
+            backConfiguredCode = targetLanguage
+        } else {
+            backConfig?.invalidate()
+        }
+    }
+
+    /// Driven by the view's second `.translationTask` (nonisolated, like `onSession`).
+    nonisolated func onBackSession(_ session: TranslationSession) async {
+        let text = await pendingBackTextValue()
+        guard !text.isEmpty else { await finishBack(result: nil); return }
+        do {
+            let result = try await session.translate(text).targetText
+            await finishBack(result: result)
+        } catch {
+            await finishBack(result: nil)
+        }
+    }
+
+    private func pendingBackTextValue() -> String { pendingBackText }
+
+    private func finishBack(result: String?) {
+        isBackTranslating = false
+        if let result {
+            backTranslation = result
+        } else {
+            backError = "暂无法回译（可能缺少该语言到中文的本地语言包）"
+        }
+    }
+
+    private func clearBack() {
+        backTranslation = ""
+        backError = nil
+        isBackTranslating = false
     }
 
     // MARK: - History (AC-HS-*)
