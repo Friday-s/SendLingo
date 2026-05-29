@@ -40,6 +40,8 @@ enum UITests {
         panelController.show()
         _ = await waitUntil(3) { panelController.panel?.isVisible == true }
 
+        let savedKey = CredentialStore.load() // preserve the user's real key
+
         await windowBehavior(panelController, settings)
         await hotkeyAndToggle(panelController, vm)
         await liveTranslation(vm)
@@ -50,7 +52,8 @@ enum UITests {
 
         // Cleanup test side effects.
         HistoryStore.shared.clear()
-        KeychainHelper.delete()
+        CredentialStore.delete()
+        if let savedKey { CredentialStore.save(savedKey) } // restore
         settings.autoHideOnBlur = false
 
         print("==== \(pass) passed, \(fail) failed, \(skip) skipped ====")
@@ -221,7 +224,7 @@ enum UITests {
         print("-- AI 优化层 --")
 
         // AC-AI-01/06 缺 Key：失败回落且保留系统译文，明确错误
-        KeychainHelper.delete()
+        CredentialStore.delete()
         vm.systemTranslation = "keep this system translation"
         vm.aiTranslation = ""
         vm.generateAI()
@@ -239,7 +242,7 @@ enum UITests {
         }
 
         // AC-AI-03/07 流式 + 入参：有效 Key 走 mock，逐步累加 token
-        KeychainHelper.save("good-key")
+        CredentialStore.save("good-key")
         vm.systemTranslation = "Hello, how are you?"
         vm.aiTranslation = ""
         vm.tone = .business
@@ -249,7 +252,7 @@ enum UITests {
         print("         AI 译文: \(vm.aiTranslation)")
 
         // AC-AI-06 无效 Key 可辨（mock 对 key=="bad" 返回 401 → invalidKey）
-        KeychainHelper.save("bad")
+        CredentialStore.save("bad")
         vm.systemTranslation = "keep me too"
         vm.aiTranslation = ""
         vm.generateAI()
@@ -258,6 +261,6 @@ enum UITests {
         }
         check("AC-AI-06 无效 Key → invalidKey 且保留系统译文",
               invalid && vm.systemTranslation == "keep me too")
-        KeychainHelper.delete()
+        CredentialStore.delete()
     }
 }

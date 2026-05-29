@@ -9,6 +9,7 @@ final class PanelController: NSObject {
     private(set) var panel: FloatingPanel?
     private let viewModel: TranslatorViewModel
     private let settings: SettingsStore
+    private var keyMonitor: Any?
 
     init(viewModel: TranslatorViewModel, settings: SettingsStore) {
         self.viewModel = viewModel
@@ -17,6 +18,22 @@ final class PanelController: NSObject {
         NotificationCenter.default.addObserver(
             forName: .optionNowHide, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.hide() }
+        }
+        // ⌥↵ (Option+Return) → trigger AI optimization. A local monitor catches it
+        // before the focused text view turns it into a newline, and works regardless
+        // of which field has focus.
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // Read value-type fields out here (NSEvent isn't Sendable, so it can't cross
+            // into the @MainActor closure below).
+            let isReturn = (event.keyCode == 36 || event.keyCode == 76) // Return / numpad Enter
+            let hasOption = event.modifierFlags.contains(.option)
+            guard isReturn && hasOption else { return event }
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard let self, let panel = self.panel, panel.isKeyWindow else { return false }
+                self.viewModel.requestAI()
+                return true
+            }
+            return handled ? nil : event // consume so it doesn't insert a newline
         }
     }
 

@@ -7,6 +7,9 @@ import AppKit
 /// work via the app's Edit menu. Focus follows `focusToken`.
 final class PlaceholderTextView: NSTextView {
     var placeholder: String = ""
+    /// Provides the current translation result; `onCopyResult` fires after copying it.
+    var resultProvider: (() -> String)?
+    var onCopyResult: (() -> Void)?
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -19,6 +22,19 @@ final class PlaceholderTextView: NSTextView {
                              y: textContainerInset.height)
         placeholder.draw(at: origin, withAttributes: attrs)
     }
+
+    /// ⌘C with no selection in the input → copy the current translation result
+    /// (so the user can type then just press ⌘C). With a selection → copy that text.
+    override func copy(_ sender: Any?) {
+        if selectedRange().length == 0, let result = resultProvider?(), !result.isEmpty {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(result, forType: .string)
+            onCopyResult?()
+        } else {
+            super.copy(sender)
+        }
+    }
 }
 
 struct ChineseInputView: NSViewRepresentable {
@@ -26,6 +42,8 @@ struct ChineseInputView: NSViewRepresentable {
     var fontSize: CGFloat
     var placeholder: String
     var focusToken: Int
+    var resultProvider: () -> String = { "" }
+    var onCopyResult: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -53,6 +71,8 @@ struct ChineseInputView: NSViewRepresentable {
         tv.isHorizontallyResizable = false
         tv.autoresizingMask = [.width]
         tv.textContainer?.widthTracksTextView = true
+        tv.resultProvider = resultProvider
+        tv.onCopyResult = onCopyResult
         scroll.documentView = tv
         context.coordinator.textView = tv
         return scroll
@@ -63,6 +83,8 @@ struct ChineseInputView: NSViewRepresentable {
         if tv.string != text { tv.string = text; tv.needsDisplay = true }
         if tv.font?.pointSize != fontSize { tv.font = NSFont.systemFont(ofSize: fontSize) }
         tv.placeholder = placeholder
+        tv.resultProvider = resultProvider
+        tv.onCopyResult = onCopyResult
 
         // Focus the input when asked (panel shown / hotkey wake).
         if context.coordinator.lastFocusToken != focusToken {

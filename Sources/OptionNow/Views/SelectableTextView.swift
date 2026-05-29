@@ -19,6 +19,11 @@ struct SelectableTextView: NSViewRepresentable {
     let text: String
     var fontSize: CGFloat = 14
     var textColor: NSColor = .labelColor
+    /// When this changes, the view grabs focus and selects all (so ⌘A/⌘C copy it).
+    var focusToken: Int = 0
+
+    func makeCoordinator() -> Coordinator { Coordinator(focusToken) }
+    final class Coordinator { var lastFocusToken: Int; init(_ t: Int) { lastFocusToken = t } }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
@@ -48,5 +53,13 @@ struct SelectableTextView: NSViewRepresentable {
         if tv.string != text { tv.string = text }
         tv.font = NSFont.systemFont(ofSize: fontSize)
         tv.textColor = textColor
+
+        if context.coordinator.lastFocusToken != focusToken {
+            context.coordinator.lastFocusToken = focusToken
+            DispatchQueue.main.async {
+                tv.window?.makeFirstResponder(tv)
+                tv.selectAll(nil)
+            }
+        }
     }
 }

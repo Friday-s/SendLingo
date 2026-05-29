@@ -137,7 +137,9 @@ struct TranslatorView: View {
             ChineseInputView(text: $vm.inputText,
                              fontSize: settings.fontSize,
                              placeholder: "输入中文，实时转换为目标语言",
-                             focusToken: vm.focusToken)
+                             focusToken: vm.focusToken,
+                             resultProvider: { vm.currentTranslationText },
+                             onCopyResult: { onResultCopied() })
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             HStack {
                 if vm.atCharLimit {
@@ -246,7 +248,9 @@ struct TranslatorView: View {
                     ProgressView().controlSize(.mini)
                 }
             }
-            SelectableTextView(text: vm.aiTranslation, fontSize: settings.fontSize)
+            SelectableTextView(text: vm.aiTranslation,
+                               fontSize: settings.fontSize,
+                               focusToken: vm.aiResultFocusToken)
                 .frame(minHeight: 40)
         }
 
@@ -290,7 +294,7 @@ struct TranslatorView: View {
                 }
                 .buttonStyle(.bordered)
                 .opacity(aiGreyed ? 0.5 : 1)
-                .help(KeychainHelper.hasKey ? "用 DeepSeek 优化当前译文" : "填写 DeepSeek API Key 后可使用")
+                .help(CredentialStore.hasKey ? "用 DeepSeek 优化当前译文（⌥↵）" : "填写 DeepSeek API Key 后可使用")
             }
 
             Button(action: { vm.backTranslate() }) {
@@ -311,26 +315,17 @@ struct TranslatorView: View {
 
             Spacer()
 
-            Text("Esc 关闭 · \(settings.hotkey.displayString) 开关")
+            Text((settings.aiEnabled ? "⌥↵ AI · " : "") + "⌘C 复制 · Esc 关闭 · \(settings.hotkey.displayString) 开关")
                 .font(.system(size: 10)).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
     }
 
     private var aiGreyed: Bool {
-        !KeychainHelper.hasKey || vm.systemTranslation.isEmpty
+        !CredentialStore.hasKey || vm.systemTranslation.isEmpty
     }
 
-    private func handleAITap() {
-        if !KeychainHelper.hasKey {
-            // Visible-but-greyed entry → guide the user to fill the key (AC-AI-01).
-            vm.phase = .failed(.missingKey)
-            NotificationCenter.default.post(name: .optionNowOpenSettings, object: nil)
-            return
-        }
-        guard !vm.systemTranslation.isEmpty else { return }
-        vm.generateAI()
-    }
+    private func handleAITap() { vm.requestAI() }
 
     private func copyAll() {
         let text = vm.currentTranslationText
@@ -338,6 +333,11 @@ struct TranslatorView: View {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
+        onResultCopied()
+    }
+
+    /// Shared "已复制" feedback (button and ⌘C-from-input both use this).
+    private func onResultCopied() {
         vm.commitCurrentToHistory()
         showCopied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {

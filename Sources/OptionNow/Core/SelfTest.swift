@@ -15,14 +15,16 @@ enum SelfTest {
 
         print("==== Option Now self-test ====")
 
-        // --- Keychain (AC-SEC-01 / AC-ST-01) ---
-        KeychainHelper.delete()
-        let saved = KeychainHelper.save("sk-selftest-ABC123")
-        check("Keychain save", saved)
-        check("Keychain load round-trip", KeychainHelper.load() == "sk-selftest-ABC123")
-        check("Keychain hasKey true", KeychainHelper.hasKey)
-        KeychainHelper.delete()
-        check("Keychain delete clears", KeychainHelper.load() == nil && !KeychainHelper.hasKey)
+        // --- Credential store (AC-SEC-01 / AC-ST-01) ---
+        let savedKey = CredentialStore.load() // preserve the user's real key
+        CredentialStore.delete()
+        let saved = CredentialStore.save("sk-selftest-ABC123")
+        check("Credential save", saved)
+        check("Credential load round-trip", CredentialStore.load() == "sk-selftest-ABC123")
+        check("Credential hasKey true", CredentialStore.hasKey)
+        CredentialStore.delete()
+        check("Credential delete clears", CredentialStore.load() == nil && !CredentialStore.hasKey)
+        if let savedKey { CredentialStore.save(savedKey) } // restore
 
         // --- Settings defaults reflecting the FIX-es ---
         let s = SettingsStore.shared

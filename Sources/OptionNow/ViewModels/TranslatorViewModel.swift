@@ -41,6 +41,9 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Bumped to ask the view to focus the input field (AC-HK-01).
     @Published var focusToken: Int = 0
+    /// Bumped when AI polish completes — asks the view to focus & select the AI result
+    /// so ⌘A / ⌘C copy the polished text.
+    @Published var aiResultFocusToken: Int = 0
 
     private let settings = SettingsStore.shared
     private let history = HistoryStore.shared
@@ -75,7 +78,7 @@ final class TranslatorViewModel: ObservableObject {
     }
 
     var canUseAI: Bool {
-        settings.aiEnabled && KeychainHelper.hasKey && !systemTranslation.isEmpty
+        settings.aiEnabled && CredentialStore.hasKey && !systemTranslation.isEmpty
     }
 
     func requestFocus() { focusToken &+= 1 }
@@ -298,9 +301,22 @@ final class TranslatorViewModel: ObservableObject {
 
     // MARK: - AI optimization (AC-AI-02/03/06/07)
 
+    /// Entry point for the ⌥↵ shortcut and the AI button: optimize, or guide the user
+    /// to fill a key if none is configured.
+    func requestAI() {
+        guard settings.aiEnabled else { return }
+        guard CredentialStore.hasKey else {
+            phase = .failed(.missingKey)
+            NotificationCenter.default.post(name: .optionNowOpenSettings, object: nil)
+            return
+        }
+        guard !systemTranslation.isEmpty else { return }
+        generateAI()
+    }
+
     func generateAI() {
         guard settings.aiEnabled else { return }
-        guard let key = KeychainHelper.load(),
+        guard let key = CredentialStore.load(),
               !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             phase = .failed(.missingKey)
             return
@@ -334,6 +350,7 @@ final class TranslatorViewModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 self.phase = .optimized
                 self.recordHistory(ai: self.aiTranslation)
+                self.aiResultFocusToken &+= 1 // focus & select AI result for ⌘A/⌘C
             } catch let e as TranslationError {
                 // Keep the system translation visible on failure (AC-AI-06).
                 self.aiTranslation = ""

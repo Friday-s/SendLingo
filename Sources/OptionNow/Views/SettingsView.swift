@@ -7,7 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var langService: LanguagePackService
 
     @State private var keyInput = ""
-    @State private var keyPresent = KeychainHelper.hasKey
+    @State private var keyPresent = CredentialStore.hasKey
     @State private var validating = false
     @State private var keyMessage: (text: String, ok: Bool)?
 
@@ -90,7 +90,7 @@ struct SettingsView: View {
             HStack(spacing: 6) {
                 Image(systemName: keyPresent ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(keyPresent ? .green : .secondary)
-                Text(keyPresent ? "已保存到 Keychain" : "未配置 Key（系统翻译不受影响）")
+                Text(keyPresent ? "已保存（本地，跨更新保留）" : "未配置 Key（系统翻译不受影响）")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
             if let msg = keyMessage {
@@ -159,25 +159,25 @@ struct SettingsView: View {
     private func saveKey() {
         let trimmed = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        if KeychainHelper.save(trimmed) {
+        if CredentialStore.save(trimmed) {
             keyPresent = true
             keyInput = ""
-            keyMessage = ("已保存到 Keychain", true)
+            keyMessage = ("已保存（本地，跨更新保留）", true)
         } else {
             keyMessage = ("保存失败，请重试", false)
         }
     }
 
     private func deleteKey() {
-        KeychainHelper.delete()
-        keyPresent = KeychainHelper.hasKey
+        CredentialStore.delete()
+        keyPresent = CredentialStore.hasKey
         keyInput = ""
         keyMessage = ("已删除", true)
     }
 
     private func validateKey() async {
         let trimmed = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = trimmed.isEmpty ? (KeychainHelper.load() ?? "") : trimmed
+        let key = trimmed.isEmpty ? (CredentialStore.load() ?? "") : trimmed
         guard !key.isEmpty else { return }
         validating = true
         keyMessage = nil
