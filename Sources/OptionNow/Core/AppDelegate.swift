@@ -90,8 +90,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "Option Now")
-            button.image?.isTemplate = true
+            // Brand-matching ⌥ glyph; fall back if the SF Symbol is unavailable.
+            let image = NSImage(systemSymbolName: "option", accessibilityDescription: "Option Now")
+                ?? NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "Option Now")
+            image?.isTemplate = true
+            button.image = image
         }
         let menu = NSMenu()
         menu.addItem(withTitle: "打开 Option Now", action: #selector(openPanel), keyEquivalent: "").target = self

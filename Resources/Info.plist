@@ -10,6 +10,10 @@
     <string>com.optionnow.app</string>
     <key>CFBundleExecutable</key>
     <string>OptionNow</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleInfoDictionaryVersion</key>

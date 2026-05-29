@@ -7,8 +7,10 @@ dist/
 DerivedData/
 .swiftpm/
 
-# Compiled test helper binary
+# Compiled test/tool helper binaries
 tools/verify
+tools/make_icon
+*.iconset
 
 # Internal product docs (not part of the open-source release)
 Option_Now_PRD_v4.2_完整版.docx
