@@ -194,6 +194,20 @@ enum UITests {
         vm.aiTranslation = "ai text"
         check("AC-CP-04 currentTranslationText=AI译文（有AI）", vm.currentTranslationText == "ai text")
         vm.aiTranslation = ""
+
+        // ⌘C 复制的是“译文结果”而非输入框中文（用户报告的问题）。
+        // copyResultToPasteboard 复制 currentTranslationText —— 按定义就不会是 inputText。
+        vm.inputText = ""                                   // 清掉挂起的实时翻译，避免与后续测试抢跑
+        _ = await waitUntil(2) { vm.systemTranslation.isEmpty }
+        vm.systemTranslation = "Hello, how are you doing?"  // 模拟“中文已译成英文”
+        vm.aiTranslation = ""
+        pb.clearContents()
+        let copied = vm.copyResultToPasteboard()
+        let clip = pb.string(forType: .string) ?? ""
+        check("⌘C 复制译文结果（=系统译文，非中文输入）",
+              copied && clip == "Hello, how are you doing?")
+        print("         剪贴板: \(clip)")
+        vm.systemTranslation = ""                            // 清理，进入下一测试
     }
 
     // MARK: - Language pack guard (AC-LP-03/07)

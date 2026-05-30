@@ -43,6 +43,15 @@ struct TranslatorView: View {
             vm.requestFocus()
             Task { await langService.refreshAll() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .optionNowResultCopied)) { _ in
+            flashCopied()
+        }
+    }
+
+    /// Briefly show the "已复制" state on the copy button.
+    private func flashCopied() {
+        showCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { showCopied = false }
     }
 
     // MARK: - Top bar (PRD §9.1)

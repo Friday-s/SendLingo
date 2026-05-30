@@ -45,6 +45,24 @@ final class PlaceholderTextView: NSTextView {
         }
         return super.validateUserInterfaceItem(item)
     }
+
+    /// Most reliable interception: the key window's first responder gets
+    /// `performKeyEquivalent` *before* the app's Edit menu. So ⌘C with no selection
+    /// copies the translation result here, ahead of any menu / IME handling.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command),
+           !event.modifierFlags.contains(.option),
+           event.charactersIgnoringModifiers == "c",
+           selectedRange().length == 0,
+           let result = resultProvider?(), !result.isEmpty {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(result, forType: .string)
+            onCopyResult?()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 struct ChineseInputView: NSViewRepresentable {

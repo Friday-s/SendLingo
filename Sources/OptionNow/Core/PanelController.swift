@@ -25,15 +25,36 @@ final class PanelController: NSObject {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // Read value-type fields out here (NSEvent isn't Sendable, so it can't cross
             // into the @MainActor closure below).
-            let isReturn = (event.keyCode == 36 || event.keyCode == 76) // Return / numpad Enter
+            let keyCode = event.keyCode
             let hasOption = event.modifierFlags.contains(.option)
-            guard isReturn && hasOption else { return event }
-            let handled = MainActor.assumeIsolated { () -> Bool in
-                guard let self, let panel = self.panel, panel.isKeyWindow else { return false }
-                self.viewModel.requestAI()
-                return true
+            let hasCommand = event.modifierFlags.contains(.command)
+            let isReturn = (keyCode == 36 || keyCode == 76) // Return / numpad Enter
+            let isC = (keyCode == 8)                          // 'C'
+
+            // ⌥↵ → AI optimization.
+            if isReturn && hasOption {
+                let handled = MainActor.assumeIsolated { () -> Bool in
+                    guard let self, let panel = self.panel, panel.isKeyWindow else { return false }
+                    self.viewModel.requestAI()
+                    return true
+                }
+                return handled ? nil : event // consume so it doesn't insert a newline
             }
-            return handled ? nil : event // consume so it doesn't insert a newline
+
+            // ⌘C with no active text selection → copy the current translation result.
+            // (With a selection, fall through so the selected text copies normally.)
+            if isC && hasCommand && !hasOption {
+                let handled = MainActor.assumeIsolated { () -> Bool in
+                    guard let self, let panel = self.panel, panel.isKeyWindow else { return false }
+                    if let tv = panel.firstResponder as? NSTextView, tv.selectedRange().length > 0 {
+                        return false // let the selection copy
+                    }
+                    return self.viewModel.copyResultToPasteboard()
+                }
+                if handled { return nil }
+            }
+
+            return event
         }
     }
 

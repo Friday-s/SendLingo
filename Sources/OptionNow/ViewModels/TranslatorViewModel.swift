@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 import Translation
 
 /// Orchestrates the two-layer translation pipeline (PRD §8.2 / §13.4).
@@ -432,6 +433,21 @@ final class TranslatorViewModel: ObservableObject {
         tone = Tone(rawValue: item.tone ?? "") ?? tone
         inputText = item.sourceText
         Task { await selectLanguage(item.targetLanguage, retranslate: true) }
+    }
+
+    /// Copy the current translation result (AI if present, else system) to the
+    /// clipboard. Used by ⌘C (no selection) and the copy button. Returns false if
+    /// there is nothing to copy.
+    @discardableResult
+    func copyResultToPasteboard() -> Bool {
+        let text = currentTranslationText
+        guard !text.isEmpty else { return false }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        commitCurrentToHistory()
+        NotificationCenter.default.post(name: .optionNowResultCopied, object: nil)
+        return true
     }
 
     func commitCurrentToHistory() {
