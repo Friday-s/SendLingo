@@ -70,6 +70,9 @@ struct ChineseInputView: NSViewRepresentable {
     var fontSize: CGFloat
     var placeholder: String
     var focusToken: Int
+    /// Bumped only on external changes (history refill / char-limit trim). The field
+    /// is re-synced from `text` only when this changes — never on normal typing.
+    var resetToken: Int = 0
     var resultProvider: () -> String = { "" }
     var onCopyResult: () -> Void = {}
 
@@ -108,11 +111,20 @@ struct ChineseInputView: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let tv = scroll.documentView as? PlaceholderTextView else { return }
-        if tv.string != text { tv.string = text; tv.needsDisplay = true }
         if tv.font?.pointSize != fontSize { tv.font = NSFont.systemFont(ofSize: fontSize) }
         tv.placeholder = placeholder
         tv.resultProvider = resultProvider
         tv.onCopyResult = onCopyResult
+
+        // Re-sync the field ONLY on an external change (token bump). Never overwrite
+        // on normal typing — that round-trip dropped characters when typing fast.
+        if context.coordinator.lastResetToken != resetToken {
+            context.coordinator.lastResetToken = resetToken
+            if tv.string != text {
+                tv.string = text
+                tv.needsDisplay = true
+            }
+        }
 
         // Focus the input when asked (panel shown / hotkey wake).
         if context.coordinator.lastFocusToken != focusToken {
@@ -127,10 +139,12 @@ struct ChineseInputView: NSViewRepresentable {
         var parent: ChineseInputView
         weak var textView: NSTextView?
         var lastFocusToken: Int
+        var lastResetToken: Int
 
         init(_ parent: ChineseInputView) {
             self.parent = parent
             self.lastFocusToken = parent.focusToken
+            self.lastResetToken = parent.resetToken
         }
 
         func textDidChange(_ notification: Notification) {

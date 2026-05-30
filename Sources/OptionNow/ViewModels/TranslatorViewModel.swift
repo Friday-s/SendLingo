@@ -42,6 +42,10 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Bumped to ask the view to focus the input field (AC-HK-01).
     @Published var focusToken: Int = 0
+    /// Bumped ONLY when `inputText` is changed externally (history refill, 1000-char
+    /// trim) so the text view re-syncs. The view never overwrites the field on normal
+    /// typing — that round-trip is what dropped characters when typing fast.
+    @Published var inputResetToken: Int = 0
     /// Bumped when AI polish completes — asks the view to focus & select the AI result
     /// so ⌘A / ⌘C copy the polished text.
     @Published var aiResultFocusToken: Int = 0
@@ -90,6 +94,7 @@ final class TranslatorViewModel: ObservableObject {
         // Enforce the 1000-char cap defensively (the view also limits) (AC-TR-04).
         if inputText.count > Self.inputCharLimit {
             inputText = String(inputText.prefix(Self.inputCharLimit))
+            inputResetToken &+= 1 // external truncation → re-sync the field
             return // didSet will fire again with the trimmed value
         }
 
@@ -432,6 +437,7 @@ final class TranslatorViewModel: ObservableObject {
         systemTranslation = ""
         tone = Tone(rawValue: item.tone ?? "") ?? tone
         inputText = item.sourceText
+        inputResetToken &+= 1 // external refill → re-sync the field
         Task { await selectLanguage(item.targetLanguage, retranslate: true) }
     }
 

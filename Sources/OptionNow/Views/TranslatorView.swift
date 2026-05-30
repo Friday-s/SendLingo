@@ -147,6 +147,7 @@ struct TranslatorView: View {
                              fontSize: settings.fontSize,
                              placeholder: "输入中文，实时转换为目标语言",
                              focusToken: vm.focusToken,
+                             resetToken: vm.inputResetToken,
                              resultProvider: { vm.currentTranslationText },
                              onCopyResult: { onResultCopied() })
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
