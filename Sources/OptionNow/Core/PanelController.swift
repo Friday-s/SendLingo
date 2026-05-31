@@ -70,13 +70,32 @@ final class PanelController: NSObject {
 
     func show() {
         let panel = ensurePanel()
-        if let frame = settings.loadWindowFrame() {
-            panel.setFrame(frame, display: false)
-            ensureOnScreen(panel)
-        }
+        // Keep the remembered SIZE, but always launch at the mouse cursor (anchor C:
+        // the cursor lands on the input field), instead of the last position.
+        var frame = panel.frame
+        if let savedSize = settings.loadWindowFrame()?.size { frame.size = savedSize }
+        frame.origin = cursorAnchoredOrigin(for: frame.size)
+        panel.setFrame(frame, display: false)
         panel.makeKeyAndOrderFront(nil)
         // Ask the SwiftUI view to focus the input field (AC-HK-01).
         viewModel.requestFocus()
+    }
+
+    /// Origin that places the panel so the mouse cursor falls on the input field
+    /// (anchor C), clamped to the visible area of the screen under the cursor.
+    private func cursorAnchoredOrigin(for size: NSSize) -> NSPoint {
+        let mouse = NSEvent.mouseLocation
+        // Offset from the window's top-left to the anchor point (inside the input box).
+        let anchorX: CGFloat = 50
+        let anchorY: CGFloat = 64
+        // Cocoa coords have a bottom-left origin; window origin is its bottom-left.
+        var origin = NSPoint(x: mouse.x - anchorX, y: mouse.y - size.height + anchorY)
+        let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
+        if let vf = screen?.visibleFrame {
+            origin.x = min(max(origin.x, vf.minX), max(vf.minX, vf.maxX - size.width))
+            origin.y = min(max(origin.y, vf.minY), max(vf.minY, vf.maxY - size.height))
+        }
+        return origin
     }
 
     func hide() {
@@ -108,7 +127,8 @@ final class PanelController: NSObject {
             if self.settings.autoHideOnBlur { self.hide() }
         }
 
-        // Persist position whenever the user drags the window (AC-WIN-03/04).
+        // Persist the frame on drag and resize so the SIZE is remembered across
+        // sessions (the launch position now follows the cursor, not this frame).
         NotificationCenter.default.addObserver(
             forName: NSWindow.didMoveNotification, object: panel, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -116,18 +136,15 @@ final class PanelController: NSObject {
                     self.settings.saveWindowFrame(p.frame)
                 }
         }
-
-        if settings.loadWindowFrame() == nil {
-            panel.center()
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: panel, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let p = self.panel else { return }
+                    self.settings.saveWindowFrame(p.frame)
+                }
         }
+
         self.panel = panel
         return panel
-    }
-
-    /// Nudge the panel back on-screen if a saved frame is off the current displays
-    /// (e.g. a monitor was unplugged) — AC-WIN-05.
-    private func ensureOnScreen(_ panel: NSPanel) {
-        let visible = NSScreen.screens.contains { $0.visibleFrame.intersects(panel.frame) }
-        if !visible { panel.center() }
     }
 }
