@@ -13,6 +13,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Single instance: if another Option Now is already running, quit this one so
+        // we never stack multiple menu-bar agents / panels (each would register ⌥I and
+        // open its own window).
+        if let bundleID = Bundle.main.bundleIdentifier,
+           NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
+            NSApp.terminate(nil)
+            return
+        }
+
         // Menu-bar-only app: no Dock icon, never steals focus on launch (PRD §7.5).
         NSApp.setActivationPolicy(.accessory)
 
