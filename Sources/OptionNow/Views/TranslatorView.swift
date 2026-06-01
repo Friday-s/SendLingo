@@ -149,30 +149,22 @@ struct TranslatorView: View {
         }
     }
 
-    /// Thin draggable handle that resizes the input pane and persists the new height.
-    /// Uses the global coordinate space so the moving handle doesn't feed back into the
-    /// drag delta (which caused oscillation/flicker), and only writes the persisted
-    /// value on release (live drag uses local @State).
+    /// Native resize handle (does not move the window; see `SplitHandle`). The live
+    /// drag uses local @State; the persisted value is written on release.
     private func splitHandle(minInput: CGFloat, maxInput: CGFloat) -> some View {
-        Divider()
-            .frame(height: 11)
-            .contentShape(Rectangle())
-            .onHover { inside in
-                if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+        SplitHandle(
+            onChanged: { delta in
+                let start = dragStartHeight ?? CGFloat(settings.splitInputHeight)
+                if dragStartHeight == nil { dragStartHeight = start }
+                liveSplitHeight = min(max(start + delta, minInput), maxInput)
+            },
+            onEnded: {
+                if let h = liveSplitHeight { settings.splitInputHeight = Double(h) }
+                dragStartHeight = nil
+                liveSplitHeight = nil
             }
-            .gesture(
-                DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                    .onChanged { value in
-                        let start = dragStartHeight ?? CGFloat(settings.splitInputHeight)
-                        if dragStartHeight == nil { dragStartHeight = start }
-                        liveSplitHeight = min(max(start + value.translation.height, minInput), maxInput)
-                    }
-                    .onEnded { _ in
-                        if let h = liveSplitHeight { settings.splitInputHeight = Double(h) }
-                        dragStartHeight = nil
-                        liveSplitHeight = nil
-                    }
-            )
+        )
+        .frame(height: 11)
     }
 
     // MARK: - Input (AC-TR-04 / AC-ERR-01/02)
