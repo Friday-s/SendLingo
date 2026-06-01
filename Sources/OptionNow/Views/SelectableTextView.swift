@@ -51,8 +51,8 @@ struct SelectableTextView: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let tv = scroll.documentView as? CopyAwareTextView else { return }
         if tv.string != text { tv.string = text }
-        tv.font = NSFont.systemFont(ofSize: fontSize)
-        tv.textColor = textColor
+        if tv.font?.pointSize != fontSize { tv.font = NSFont.systemFont(ofSize: fontSize) }
+        if tv.textColor != textColor { tv.textColor = textColor }
 
         if context.coordinator.lastFocusToken != focusToken {
             context.coordinator.lastFocusToken = focusToken

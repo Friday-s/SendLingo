@@ -10,6 +10,7 @@ struct TranslatorView: View {
 
     @State private var showCopied = false
     @State private var dragStartHeight: CGFloat?
+    @State private var liveSplitHeight: CGFloat?  // non-nil only while dragging
 
     var body: some View {
         VStack(spacing: 0) {
@@ -127,7 +128,8 @@ struct TranslatorView: View {
             GeometryReader { geo in
                 let minInput: CGFloat = 60
                 let maxInput = max(minInput, geo.size.height - 98) // keep room for output
-                let inputH = min(max(CGFloat(settings.splitInputHeight), minInput), maxInput)
+                let base = liveSplitHeight ?? CGFloat(settings.splitInputHeight)
+                let inputH = min(max(base, minInput), maxInput)
                 VStack(spacing: 0) {
                     inputArea
                         .frame(height: inputH)
@@ -148,6 +150,9 @@ struct TranslatorView: View {
     }
 
     /// Thin draggable handle that resizes the input pane and persists the new height.
+    /// Uses the global coordinate space so the moving handle doesn't feed back into the
+    /// drag delta (which caused oscillation/flicker), and only writes the persisted
+    /// value on release (live drag uses local @State).
     private func splitHandle(minInput: CGFloat, maxInput: CGFloat) -> some View {
         Divider()
             .frame(height: 11)
@@ -156,14 +161,17 @@ struct TranslatorView: View {
                 if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
             }
             .gesture(
-                DragGesture(minimumDistance: 1)
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
                     .onChanged { value in
                         let start = dragStartHeight ?? CGFloat(settings.splitInputHeight)
                         if dragStartHeight == nil { dragStartHeight = start }
-                        let newH = start + value.translation.height
-                        settings.splitInputHeight = Double(min(max(newH, minInput), maxInput))
+                        liveSplitHeight = min(max(start + value.translation.height, minInput), maxInput)
                     }
-                    .onEnded { _ in dragStartHeight = nil }
+                    .onEnded { _ in
+                        if let h = liveSplitHeight { settings.splitInputHeight = Double(h) }
+                        dragStartHeight = nil
+                        liveSplitHeight = nil
+                    }
             )
     }
 
