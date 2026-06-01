@@ -40,6 +40,7 @@ final class SettingsStore: ObservableObject {
         static let theme = "theme"
         static let fontSize = "fontSize"
         static let windowFrame = "windowFrame"
+        static let splitInputHeight = "splitInputHeight"
     }
 
     @Published var defaultTargetLanguage: String { didSet { defaults.set(defaultTargetLanguage, forKey: Key.defaultTargetLanguage) } }
@@ -55,6 +56,9 @@ final class SettingsStore: ObservableObject {
     @Published var autoHideOnBlur: Bool { didSet { defaults.set(autoHideOnBlur, forKey: Key.autoHideOnBlur) } }
     @Published var theme: AppTheme { didSet { defaults.set(theme.rawValue, forKey: Key.theme) } }
     @Published var fontSize: Double { didSet { defaults.set(fontSize, forKey: Key.fontSize) } }
+    /// Height of the input pane above the input/translation divider (persisted so the
+    /// divider position is remembered across hide/show and restarts).
+    @Published var splitInputHeight: Double { didSet { defaults.set(splitInputHeight, forKey: Key.splitInputHeight) } }
 
     /// True when the global hotkey could not be registered (taken by the system /
     /// another app). Not persisted — recomputed on every (re)registration (AC-HK-07).
@@ -74,6 +78,7 @@ final class SettingsStore: ObservableObject {
         self.autoHideOnBlur = defaults.object(forKey: Key.autoHideOnBlur) as? Bool ?? false
         self.theme = AppTheme(rawValue: defaults.string(forKey: Key.theme) ?? "") ?? .system
         self.fontSize = defaults.object(forKey: Key.fontSize) as? Double ?? 14.0
+        self.splitInputHeight = defaults.object(forKey: Key.splitInputHeight) as? Double ?? 120.0
 
         if let data = defaults.data(forKey: Key.hotkey),
            let hk = try? JSONDecoder().decode(HotKeyConfig.self, from: data) {

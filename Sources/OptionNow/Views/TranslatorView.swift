@@ -9,6 +9,7 @@ struct TranslatorView: View {
     @EnvironmentObject var langService: LanguagePackService
 
     @State private var showCopied = false
+    @State private var dragStartHeight: CGFloat?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -120,16 +121,23 @@ struct TranslatorView: View {
 
     private var mainContent: some View {
         VStack(spacing: 0) {
-            // Draggable divider between the input box and the output box so the user
-            // can freely re-balance their heights.
-            VSplitView {
-                inputArea
-                    .frame(minHeight: 60, idealHeight: 110)
+            // Custom draggable divider between input and output. The input-pane height
+            // is persisted (settings.splitInputHeight), so the divider position is
+            // remembered across hide/show and restarts.
+            GeometryReader { geo in
+                let minInput: CGFloat = 60
+                let maxInput = max(minInput, geo.size.height - 98) // keep room for output
+                let inputH = min(max(CGFloat(settings.splitInputHeight), minInput), maxInput)
                 VStack(spacing: 0) {
-                    toneBar
-                    translationArea
+                    inputArea
+                        .frame(height: inputH)
+                    splitHandle(minInput: minInput, maxInput: maxInput)
+                    VStack(spacing: 0) {
+                        toneBar
+                        translationArea
+                    }
+                    .frame(maxHeight: .infinity)
                 }
-                .frame(minHeight: 90, idealHeight: 300)
             }
             Divider()
             bottomBar
@@ -137,6 +145,26 @@ struct TranslatorView: View {
         .onExitCommand {
             NotificationCenter.default.post(name: .optionNowHide, object: nil)
         }
+    }
+
+    /// Thin draggable handle that resizes the input pane and persists the new height.
+    private func splitHandle(minInput: CGFloat, maxInput: CGFloat) -> some View {
+        Divider()
+            .frame(height: 11)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let start = dragStartHeight ?? CGFloat(settings.splitInputHeight)
+                        if dragStartHeight == nil { dragStartHeight = start }
+                        let newH = start + value.translation.height
+                        settings.splitInputHeight = Double(min(max(newH, minInput), maxInput))
+                    }
+                    .onEnded { _ in dragStartHeight = nil }
+            )
     }
 
     // MARK: - Input (AC-TR-04 / AC-ERR-01/02)
