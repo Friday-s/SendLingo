@@ -1,8 +1,8 @@
 import AppKit
 
 /// Headless self-test exercising the **shipping** non-UI code paths, run via
-/// `OptionNow --selftest`. Provides concrete pass/fail evidence for the acceptance
-/// items that don't require human interaction (Keychain/security, history rules,
+/// `SendLingo --selftest`. Provides concrete pass/fail evidence for the acceptance
+/// items that don't require human interaction (credential store/security, history rules,
 /// settings defaults/round-trip, hotkey registration, error copy).
 @MainActor
 enum SelfTest {
@@ -13,7 +13,7 @@ enum SelfTest {
             cond ? (pass += 1) : (fail += 1)
         }
 
-        print("==== Option Now self-test ====")
+        print("==== SendLingo self-test ====")
 
         // --- Credential store (AC-SEC-01 / AC-ST-01) ---
         let savedKey = CredentialStore.load() // preserve the user's real key
@@ -60,7 +60,28 @@ enum SelfTest {
         if let top = h.items.first { h.delete(top) }
         check("Single delete (AC-HS-05)", h.items.count == 1)
 
-        // --- Favorites: pin/unpin, max 3, move recent↔favorites ---
+        // Repeated translations and small punctuation/edit changes should update the
+        // same draft instead of filling the recent list with near-identical rows.
+        h.clear()
+        h.add(TranslationHistoryItem(sourceText: "非常感谢你对我们的支持！\n这一次想讨论文章合作。",
+                                     targetLanguage: "ja", systemTranslation: "old"))
+        h.add(TranslationHistoryItem(sourceText: "非常感谢你对我们的支持，这一次想讨论文章合作",
+                                     targetLanguage: "ja", systemTranslation: "new"))
+        check("Punctuation/newline duplicate collapses",
+              h.items.count == 1 && h.items.first?.systemTranslation == "new")
+        h.add(TranslationHistoryItem(sourceText: "非常感谢你对我们的支持，所以这一次想讨论文章合作",
+                                     targetLanguage: "ja", systemTranslation: "newer"))
+        check("Small localized edit collapses",
+              h.items.count == 1 && h.items.first?.systemTranslation == "newer")
+        h.add(TranslationHistoryItem(sourceText: "这一次想讨论文章合作，非常感谢你对我们的支持",
+                                     targetLanguage: "ja", systemTranslation: "reordered"))
+        check("Reordered clauses collapse",
+              h.items.count == 1 && h.items.first?.systemTranslation == "reordered")
+        h.add(TranslationHistoryItem(sourceText: "非常感谢你对我们的支持，这一次想讨论视频合作和付款安排",
+                                     targetLanguage: "ja", systemTranslation: "different"))
+        check("Meaningfully different draft stays separate", h.items.count == 2)
+
+        // --- Favorites: pin/unpin without an artificial cap, move recent↔favorites ---
         h.clear()
         for f in h.favorites { h.toggleFavorite(f) }
         var made: [TranslationHistoryItem] = []
@@ -68,9 +89,9 @@ enum SelfTest {
             let it = TranslationHistoryItem(sourceText: "收藏候选\(i)", targetLanguage: "en", systemTranslation: "fav \(i)")
             made.append(it); h.add(it)
         }
-        h.toggleFavorite(made[4]); h.toggleFavorite(made[3]); h.toggleFavorite(made[2])
-        check("Favorite pins item & removes from recent", h.favorites.count == 3 && !h.items.contains { $0.id == made[4].id })
-        check("Favorites capped at 3", { h.toggleFavorite(made[1]); return h.favorites.count == 3 }())
+        for item in made { h.toggleFavorite(item) }
+        check("Favorite pins item & removes from recent", h.favorites.count == 5 && !h.items.contains { $0.id == made[4].id })
+        check("Favorites accept more than 3 items", h.favorites.count > 3)
         check("Unfavorite moves back to recent", { let f = h.favorites[0]; h.toggleFavorite(f); return !h.isFavorite(f) && h.items.contains { $0.id == f.id } }())
 
         // restore prior state

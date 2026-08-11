@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds Option Now and assembles a runnable, ad-hoc-signed .app bundle.
+# Builds SendLingo and assembles a runnable, ad-hoc-signed .app bundle.
 # Usage: ./build.sh [debug|release]   (default: release)
 set -euo pipefail
 
@@ -11,12 +11,12 @@ echo "==> swift build -c $CONFIG"
 swift build -c "$CONFIG"
 
 BIN="$(swift build -c "$CONFIG" --show-bin-path)"
-APP="$ROOT/dist/Option Now.app"
+APP="$ROOT/dist/SendLingo.app"
 
 echo "==> Assembling bundle"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN/OptionNow" "$APP/Contents/MacOS/OptionNow"
+cp "$BIN/SendLingo" "$APP/Contents/MacOS/SendLingo"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 

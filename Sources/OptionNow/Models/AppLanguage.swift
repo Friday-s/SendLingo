@@ -1,8 +1,8 @@
 import Foundation
 
-/// A target language that Option Now can translate Chinese into.
+/// A target language that SendLingo can translate Chinese into.
 ///
-/// The source language is always Simplified Chinese (`zh-Hans`) — Option Now is a
+/// The source language is always Simplified Chinese (`zh-Hans`) — SendLingo is a
 /// one-directional "write Chinese, send foreign language" tool (PRD §0, AC-TR-10).
 struct AppLanguage: Identifiable, Hashable, Codable {
     /// BCP-47 identifier passed to `Locale.Language` / Translation framework.

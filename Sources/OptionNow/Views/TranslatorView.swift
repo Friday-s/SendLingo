@@ -22,7 +22,7 @@ struct TranslatorView: View {
                 mainContent
             }
         }
-        .frame(minWidth: 300, idealWidth: 420, minHeight: 300, idealHeight: 560)
+        .frame(minWidth: 340, idealWidth: 420, minHeight: 360, idealHeight: 560)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
@@ -60,8 +60,10 @@ struct TranslatorView: View {
 
     private var topBar: some View {
         HStack(spacing: 10) {
-            Text("Option Now")
+            Text("SendLingo")
                 .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
             languageMenu
             statusTag(vm.currentStatus)
             Spacer()
@@ -126,8 +128,12 @@ struct TranslatorView: View {
             // is persisted (settings.splitInputHeight), so the divider position is
             // remembered across hide/show and restarts.
             GeometryReader { geo in
-                let minInput: CGFloat = 60
-                let maxInput = max(minInput, geo.size.height - 98) // keep room for output
+                // The input pane scales within the available height while always
+                // reserving a useful translation area. This keeps both panes usable
+                // when the user makes the window short or tall.
+                let minInput = min(84, max(56, geo.size.height * 0.18))
+                let reservedOutput = min(180, max(112, geo.size.height * 0.42))
+                let maxInput = max(minInput, geo.size.height - reservedOutput - 11)
                 let base = liveSplitHeight ?? CGFloat(settings.splitInputHeight)
                 let inputH = min(max(base, minInput), maxInput)
                 VStack(spacing: 0) {
@@ -207,7 +213,8 @@ struct TranslatorView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .fixedSize()
+                .frame(minWidth: 150, maxWidth: 220)
+                .layoutPriority(1)
             }
             .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 2)
         } else {
@@ -303,7 +310,8 @@ struct TranslatorView: View {
             } else if !vm.backTranslation.isEmpty {
                 SelectableTextView(text: vm.backTranslation,
                                    fontSize: settings.fontSize,
-                                   textColor: .secondaryLabelColor)
+                                   textColor: .secondaryLabelColor,
+                                   minimumHeight: 32)
                     .frame(minHeight: 32)
             }
         }
@@ -324,39 +332,56 @@ struct TranslatorView: View {
     // MARK: - Bottom bar (PRD §9.1)
 
     private var bottomBar: some View {
-        HStack(spacing: 8) {
-            if settings.aiEnabled {
-                Button(action: handleAITap) {
-                    Label("AI 生成", systemImage: "sparkles")
-                        .font(.system(size: 12))
-                }
-                .buttonStyle(.bordered)
-                .opacity(aiGreyed ? 0.5 : 1)
-                .help(CredentialStore.hasKey ? "用 DeepSeek 优化当前译文（⌥↵）" : "填写 DeepSeek API Key 后可使用")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                actionButtons
+                Spacer(minLength: 8)
+                shortcutHint
             }
 
-            Button(action: { vm.backTranslate() }) {
-                Label("回译", systemImage: "arrow.uturn.left")
-                    .font(.system(size: 12))
+            HStack(spacing: 8) {
+                actionButtons
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.bordered)
-            .disabled(vm.currentTranslationText.isEmpty || vm.isBackTranslating)
-            .help("把译文再译回中文，核对意思再发")
-
-            Button(action: copyAll) {
-                Label(showCopied ? "已复制" : "复制",
-                      systemImage: showCopied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.bordered)
-            .disabled(vm.currentTranslationText.isEmpty)
-
-            Spacer()
-
-            Text((settings.aiEnabled ? "⌥↵ AI · " : "") + "⌘C 复制 · Esc 关闭 · \(settings.hotkey.displayString) 开关")
-                .font(.system(size: 10)).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if settings.aiEnabled {
+            Button(action: handleAITap) {
+                Label("AI 生成", systemImage: "sparkles")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.bordered)
+            .opacity(aiGreyed ? 0.5 : 1)
+            .help(CredentialStore.hasKey ? "用 DeepSeek 优化当前译文（⌥↵）" : "填写 DeepSeek API Key 后可使用")
+        }
+
+        Button(action: { vm.backTranslate() }) {
+            Label("回译", systemImage: "arrow.uturn.left")
+                .font(.system(size: 12))
+        }
+        .buttonStyle(.bordered)
+        .disabled(vm.currentTranslationText.isEmpty || vm.isBackTranslating)
+        .help("把译文再译回中文，核对意思再发")
+
+        Button(action: copyAll) {
+            Label(showCopied ? "已复制" : "复制",
+                  systemImage: showCopied ? "checkmark" : "doc.on.doc")
+                .font(.system(size: 12))
+        }
+        .buttonStyle(.bordered)
+        .disabled(vm.currentTranslationText.isEmpty)
+    }
+
+    private var shortcutHint: some View {
+        Text((settings.aiEnabled ? "⌥↵ AI · " : "") + "⌘C 复制 · Esc 关闭 · \(settings.hotkey.displayString) 开关")
+            .font(.system(size: 10))
+            .foregroundStyle(.tertiary)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private var aiGreyed: Bool {

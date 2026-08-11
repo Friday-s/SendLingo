@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Settings page (PRD §7.7 / AC-ST-*). Holds no API key directly — the key lives in
-/// the Keychain (AC-SEC-01).
+/// a local credential file (see `CredentialStore`).
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsStore
     @EnvironmentObject var langService: LanguagePackService
@@ -20,8 +20,9 @@ struct SettingsView: View {
             appearanceSection
         }
         .formStyle(.grouped)
-        .frame(width: 460)
-        .onAppear { Task { await langService.refreshAll() } }
+        .frame(minWidth: 460, idealWidth: 520, maxWidth: .infinity,
+               minHeight: 520, maxHeight: .infinity)
+        .task { await langService.refreshAll(force: false) }
     }
 
     // MARK: - General (AC-ST-02/03/05, AC-HK-06/07)

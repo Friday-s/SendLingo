@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Option Now</string>
+    <string>SendLingo</string>
     <key>CFBundleDisplayName</key>
-    <string>Option Now</string>
+    <string>SendLingo</string>
     <key>CFBundleIdentifier</key>
-    <string>com.optionnow.app</string>
+    <string>com.ivor.sendlingo</string>
     <key>CFBundleExecutable</key>
-    <string>OptionNow</string>
+    <string>SendLingo</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIconName</key>
@@ -29,7 +29,7 @@
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Option Now</string>
+    <string>SendLingo</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

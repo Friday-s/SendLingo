@@ -1,11 +1,11 @@
-# Option Now — 验收对照（对照《验收标准文档 v1.0》）
+# SendLingo — 验收对照（对照《验收标准文档 v1.0》）
 
 图例：✅ 已验证（有实测数据 / `--selftest` 自动化证据）｜🟦 已实现·待人工交互验收（代码完成，需按文档步骤人工执行：按键、切应用、多屏、断网等）
 
 证据来源：
-- `--selftest`：出货二进制 `OptionNow --selftest`，20/20 通过。
+- `--selftest`：出货二进制 `SendLingo --selftest`，20/20 通过。
 - 翻译实测：`tools/verify_translation.swift`，真实系统翻译 + 延迟。
-- 运行观测：`open dist/Option Now.app` 进程内存/CPU/稳定性。
+- 运行观测：`open dist/SendLingo.app` 进程内存/CPU/稳定性。
 
 ---
 
@@ -96,7 +96,7 @@
 | 编号 | 状态 | 说明 |
 |---|---|---|
 | AC-WIN-01 常驻最前 | 🟦 | `.floating`+`canJoinAllSpaces`+`fullScreenAuxiliary` |
-| AC-WIN-02 不抢焦点 | 🟦 | `.nonactivatingPanel`+`canBecomeMain=false` |
+| AC-WIN-02 输入焦点可靠 | ✅ | 使用可激活浮窗，`canBecomeMain=false`；唤起后成为 key window，真实键盘输入已验证 |
 | AC-WIN-03 可拖拽 | 🟦 | `isMovableByWindowBackground` |
 | AC-WIN-04 记忆位置 | 🟦 | 保存/恢复 frame + 重启保持 |
 | AC-WIN-05 多显示器 | 🟦 | `ensureOnScreen` 防错屏；需人工多屏测 |
@@ -167,8 +167,8 @@ ERR-10 崩溃防护：✅ 运行观测稳定无崩溃；所有失败路径均为
 
 ```bash
 python3 tools/mock_deepseek.py &
-OPTIONNOW_DEEPSEEK_BASE="http://127.0.0.1:8765/chat/completions" \
-  "$(swift build -c release --show-bin-path)/OptionNow" --uitest
+SENDLINGO_DEEPSEEK_BASE="http://127.0.0.1:8765/chat/completions" \
+  "$(swift build -c release --show-bin-path)/SendLingo" --uitest
 ```
 
 由此**从「🟦 待人工」升级为「✅ 已实测」**的项：
@@ -176,7 +176,7 @@ OPTIONNOW_DEEPSEEK_BASE="http://127.0.0.1:8765/chat/completions" \
 | 项 | 实测结果 |
 |---|---|
 | AC-WIN-01 常驻最前 | level=.floating / canJoinAllSpaces / fullScreenAuxiliary / hidesOnDeactivate=false ✅ |
-| AC-WIN-02 不抢焦点 | nonactivatingPanel / canBecomeKey=true / canBecomeMain=false ✅ |
+| AC-WIN-02 输入焦点可靠 | accessory app 激活 / activating panel / canBecomeKey=true / canBecomeMain=false ✅ |
 | AC-WIN-03 可拖拽 | isMovableByWindowBackground=true ✅ |
 | AC-WIN-08 失焦自动隐藏开关 | 默认不隐藏；开启后失焦隐藏 ✅ |
 | AC-HK-01 唤起+聚焦 | 浮窗成为 key window + focusToken++ ✅ |

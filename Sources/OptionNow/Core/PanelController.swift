@@ -74,11 +74,25 @@ final class PanelController: NSObject {
         // the cursor lands on the input field), instead of the last position.
         var frame = panel.frame
         if let savedSize = settings.loadWindowFrame()?.size { frame.size = savedSize }
+        frame.size.width = max(frame.size.width, panel.contentMinSize.width)
+        frame.size.height = max(frame.size.height, panel.contentMinSize.height)
         frame.origin = cursorAnchoredOrigin(for: frame.size)
         panel.setFrame(frame, display: false)
+
+        // The user explicitly invoked SendLingo to type. A newly renamed accessory
+        // app can own a visually focused non-activating panel while still not being
+        // the active application, so macOS continues sending keyboard events to the
+        // previous app. Activate first, then make the panel key.
+        NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
         // Ask the SwiftUI view to focus the input field (AC-HK-01).
         viewModel.requestFocus()
+        // Activation completes asynchronously. Reassert key/first-responder state on
+        // the next main-loop turn so the first keystroke is never lost.
+        DispatchQueue.main.async { [weak self, weak panel] in
+            panel?.makeKey()
+            self?.viewModel.requestFocus()
+        }
     }
 
     /// Origin that places the panel so the mouse cursor falls on the input field
@@ -110,6 +124,7 @@ final class PanelController: NSObject {
         let defaultFrame = settings.loadWindowFrame()
             ?? NSRect(x: 0, y: 0, width: 420, height: 560)
         let panel = FloatingPanel(contentRect: defaultFrame)
+        panel.contentMinSize = NSSize(width: 340, height: 360)
 
         let root = TranslatorView()
             .environmentObject(viewModel)
@@ -117,9 +132,23 @@ final class PanelController: NSObject {
             .environmentObject(HistoryStore.shared)
             .environmentObject(LanguagePackService.shared)
 
+        // Pin the SwiftUI host to a resizable AppKit container. Assigning a hosting
+        // view with translatesAutoresizingMaskIntoConstraints=false directly as the
+        // contentView leaves it without constraints, so the window frame can resize
+        // while the page remains at its original size.
+        let container = NSView(frame: panel.contentLayoutRect)
+        container.autoresizingMask = [.width, .height]
+        panel.contentView = container
+
         let hosting = NSHostingView(rootView: root)
         hosting.translatesAutoresizingMaskIntoConstraints = false
-        panel.contentView = hosting
+        container.addSubview(hosting)
+        NSLayoutConstraint.activate([
+            hosting.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hosting.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hosting.topAnchor.constraint(equalTo: container.topAnchor),
+            hosting.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
 
         panel.onEscape = { [weak self] in self?.hide() }
         panel.onResignKey = { [weak self] in

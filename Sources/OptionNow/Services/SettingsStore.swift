@@ -22,12 +22,14 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
 }
 
 /// User settings, persisted to `UserDefaults`. Holds **no** API key — that lives
-/// only in the Keychain (AC-SEC-01). All access is on the main actor.
+/// only in `CredentialStore` (local 0600 file). All access is on the main actor.
 @MainActor
 final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
 
     private let defaults = UserDefaults.standard
+    private static let legacyBundleID = "com.optionnow.app"
+    private static let migrationKey = "sendLingoMigratedFromOptionNow"
     private enum Key {
         static let defaultTargetLanguage = "defaultTargetLanguage"
         static let defaultTone = "defaultTone"
@@ -65,9 +67,10 @@ final class SettingsStore: ObservableObject {
     @Published var hotkeyConflict: Bool = false
 
     private init() {
+        Self.migrateLegacyDefaultsIfNeeded()
         // Defaults reflect the acceptance fixes:
         // - default tone = casual (FIX-4 / AC-AI-05)
-        // - aiEnabled = true means "show entry"; gated by Keychain key (FIX-3)
+        // - aiEnabled = true means "show entry"; gated by the saved key (FIX-3)
         // - debounce = 200ms
         self.defaultTargetLanguage = defaults.string(forKey: Key.defaultTargetLanguage) ?? "en"
         self.defaultTone = Tone(rawValue: defaults.string(forKey: Key.defaultTone) ?? "") ?? .casual
@@ -86,6 +89,21 @@ final class SettingsStore: ObservableObject {
         } else {
             self.hotkey = .defaultHotKey
         }
+    }
+
+    /// The product was renamed from Option Now to SendLingo with a new bundle ID.
+    /// Copy the old persistent domain once before any setting is read so history,
+    /// favorites, window layout and preferences survive the rename.
+    private static func migrateLegacyDefaultsIfNeeded() {
+        let current = UserDefaults.standard
+        guard !current.bool(forKey: migrationKey) else { return }
+
+        if let legacy = current.persistentDomain(forName: legacyBundleID) {
+            for (key, value) in legacy where current.object(forKey: key) == nil {
+                current.set(value, forKey: key)
+            }
+        }
+        current.set(true, forKey: migrationKey)
     }
 
     private func persistHotkey() {

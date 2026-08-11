@@ -39,10 +39,11 @@ final class LanguagePackService: ObservableObject {
         return mapped
     }
 
-    /// Refresh all first-batch languages (called at launch and on the settings page).
-    func refreshAll() async {
+    /// Refresh all first-batch languages. The settings page accepts a fresh cache so
+    /// reopening it never starts seven forced system checks on the main actor.
+    func refreshAll(force: Bool = true) async {
         for lang in AppLanguage.firstBatch {
-            await refresh(lang.code, force: true)
+            await refresh(lang.code, force: force)
         }
     }
 

@@ -9,11 +9,11 @@ struct AIOptimizeService {
 
     static let defaultModel = "deepseek-chat"
 
-    /// DeepSeek endpoint. Overridable via `OPTIONNOW_DEEPSEEK_BASE` (used by the
-    /// in-process AI streaming test against a local mock server; also the seam for the
-    /// P1 custom-Base-URL provider). Defaults to DeepSeek's OpenAI-compatible endpoint.
+    /// DeepSeek endpoint. Overridable via `SENDLINGO_DEEPSEEK_BASE`; the legacy
+    /// OptionNow variable remains accepted so existing local scripts keep working.
     private var endpoint: URL {
-        if let base = ProcessInfo.processInfo.environment["OPTIONNOW_DEEPSEEK_BASE"],
+        if let base = ProcessInfo.processInfo.environment["SENDLINGO_DEEPSEEK_BASE"]
+            ?? ProcessInfo.processInfo.environment["OPTIONNOW_DEEPSEEK_BASE"],
            let url = URL(string: base) {
             return url
         }
@@ -45,14 +45,15 @@ struct AIOptimizeService {
                              tone: Tone,
                              source: String,
                              systemTranslation: String,
-                             stream: Bool) throws -> URLRequest {
+                             stream: Bool,
+                             maxTokens: Int? = nil) throws -> URLRequest {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": model,
             "stream": stream,
             "messages": [
@@ -63,6 +64,7 @@ struct AIOptimizeService {
                                         source: source, systemTranslation: systemTranslation)]
             ]
         ]
+        if let maxTokens { body["max_tokens"] = maxTokens }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
     }
@@ -125,13 +127,16 @@ struct AIOptimizeService {
     /// or a `TranslationError` describing the failure.
     func validate(apiKey: String, model: String) async -> TranslationError? {
         do {
+            // Only checks auth/model reachability — cap the generation so validation
+            // stays fast and near-free.
             var request = try makeRequest(apiKey: apiKey,
                                           model: model,
                                           targetLangDisplay: "English",
                                           tone: .casual,
                                           source: "你好",
                                           systemTranslation: "Hello",
-                                          stream: false)
+                                          stream: false,
+                                          maxTokens: 8)
             request.timeoutInterval = 15
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else { return .networkError }

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "OptionNow",
+    name: "SendLingo",
     platforms: [
         // Programmatic TranslationSession / LanguageAvailability require macOS 15.0+.
         // The delivered .app declares LSMinimumSystemVersion = 15.0 (see Info.plist).
@@ -10,7 +10,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "OptionNow",
+            name: "SendLingo",
             path: "Sources/OptionNow",
             swiftSettings: [
                 .unsafeFlags(["-parse-as-library"])

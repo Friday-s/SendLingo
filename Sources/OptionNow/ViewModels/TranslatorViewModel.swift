@@ -391,8 +391,9 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Driven by the view's second `.translationTask` (nonisolated, like `onSession`).
     nonisolated func onBackSession(_ session: TranslationSession) async {
-        let text = await pendingBackTextValue()
-        guard !text.isEmpty else { await finishBack(result: nil); return }
+        // Only translate when a back-translation is actually pending — the task can
+        // also re-run on view updates with a stale config, which must stay a no-op.
+        guard let text = await pendingBackTextValue() else { return }
         do {
             let result = try await session.translate(text).targetText
             await finishBack(result: result)
@@ -401,9 +402,15 @@ final class TranslatorViewModel: ObservableObject {
         }
     }
 
-    private func pendingBackTextValue() -> String { pendingBackText }
+    private func pendingBackTextValue() -> String? {
+        guard isBackTranslating, !pendingBackText.isEmpty else { return nil }
+        return pendingBackText
+    }
 
     private func finishBack(result: String?) {
+        // Dropped if the input changed meanwhile (clearBack() already reset the flag) —
+        // otherwise a stale back-translation for the previous text would resurface.
+        guard isBackTranslating else { return }
         isBackTranslating = false
         if let result {
             backTranslation = result
@@ -438,6 +445,9 @@ final class TranslatorViewModel: ObservableObject {
         tone = Tone(rawValue: item.tone ?? "") ?? tone
         inputText = item.sourceText
         inputResetToken &+= 1 // external refill → re-sync the field
+        // selectLanguage below retranslates immediately — drop the debounce run the
+        // didSet just scheduled so the same text isn't translated twice.
+        debounceTask?.cancel()
         Task { await selectLanguage(item.targetLanguage, retranslate: true) }
     }
 

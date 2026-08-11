@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Single instance: if another Option Now is already running, quit this one so
+        // Single instance: if another SendLingo is already running, quit this one so
         // we never stack multiple menu-bar agents / panels (each would register ⌥I and
         // open its own window).
         if let bundleID = Bundle.main.bundleIdentifier,
@@ -30,9 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerHotKey()
 
         // Re-register whenever the user changes the hotkey in Settings (AC-HK-06).
+        // NOTE: @Published emits during willSet, so `settings.hotkey` still holds the
+        // OLD value inside this sink — register the emitted new value, not the property.
         hotkeyCancellable = settings.$hotkey
             .dropFirst()
-            .sink { [weak self] _ in self?.registerHotKey() }
+            .sink { [weak self] newValue in self?.registerHotKey(newValue) }
 
         // Open settings when the panel UI requests it.
         NotificationCenter.default.addObserver(
@@ -73,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // App menu (Quit).
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "退出 Option Now", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "退出 SendLingo", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
 
@@ -100,16 +102,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
             // Brand-matching ⌥ glyph; fall back if the SF Symbol is unavailable.
-            let image = NSImage(systemSymbolName: "option", accessibilityDescription: "Option Now")
-                ?? NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "Option Now")
+            let image = NSImage(systemSymbolName: "option", accessibilityDescription: "SendLingo")
+                ?? NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "SendLingo")
             image?.isTemplate = true
             button.image = image
         }
         let menu = NSMenu()
-        menu.addItem(withTitle: "打开 Option Now", action: #selector(openPanel), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "打开 SendLingo", action: #selector(openPanel), keyEquivalent: "").target = self
         menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 Option Now", action: #selector(quit), keyEquivalent: "q").target = self
+        menu.addItem(withTitle: "退出 SendLingo", action: #selector(quit), keyEquivalent: "q").target = self
         item.menu = menu
         statusItem = item
     }
@@ -120,8 +122,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Hotkey
 
-    private func registerHotKey() {
-        let ok = HotKeyManager.shared.register(settings.hotkey) { [weak self] in
+    private func registerHotKey(_ config: HotKeyConfig? = nil) {
+        let hotkey = config ?? settings.hotkey
+        let ok = HotKeyManager.shared.register(hotkey) { [weak self] in
             self?.panelController.toggle()
         }
         settings.hotkeyConflict = !ok
@@ -130,6 +133,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Settings window
 
     @objc func openSettings() {
+        // The translator is a floating panel. Leaving it visible while opening a
+        // normal settings window can keep the panel above the settings page and
+        // make the latter appear inactive/unresponsive. Settings owns the focus
+        // while it is open, so hide the panel first.
+        panelController.hide()
+
         if settingsWindow == nil {
             let root = SettingsView()
                 .environmentObject(settings)
@@ -137,13 +146,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .environmentObject(LanguagePackService.shared)
             let hosting = NSHostingController(rootView: root)
             let window = NSWindow(contentViewController: hosting)
-            window.title = "Option Now 设置"
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.setContentSize(NSSize(width: 460, height: 560))
+            window.title = "SendLingo 设置"
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.contentMinSize = NSSize(width: 460, height: 520)
+            window.setContentSize(NSSize(width: 520, height: 640))
             window.isReleasedWhenClosed = false
             window.center()
             settingsWindow = window
         }
+
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
     }

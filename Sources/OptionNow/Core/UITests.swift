@@ -1,7 +1,8 @@
 import AppKit
+import SwiftUI
 import Translation
 
-/// In-process integration tests, run via `OptionNow --uitest` inside a live
+/// In-process integration tests, run via `SendLingo --uitest` inside a live
 /// `NSApplication` with the panel actually mounted. This exercises the SHIPPING
 /// runtime: the real floating panel, the live `.translationTask` translation
 /// pipeline, the view model state machine, the copy logic, and (against a local mock
@@ -34,7 +35,7 @@ enum UITests {
     static func run(panelController: PanelController,
                     vm: TranslatorViewModel,
                     settings: SettingsStore) async -> Int32 {
-        print("==== Option Now UI/integration test ====")
+        print("==== SendLingo UI/integration test ====")
 
         // Let the panel + SwiftUI view mount and language statuses prime.
         panelController.show()
@@ -70,9 +71,30 @@ enum UITests {
         check("AC-WIN-01/06 含 fullScreenAuxiliary", panel.collectionBehavior.contains(.fullScreenAuxiliary))
         check("AC-WIN-01 hidesOnDeactivate == false（切应用不消失）", panel.hidesOnDeactivate == false)
         check("AC-WIN-02 canBecomeKey == true（可输入）", panel.canBecomeKey == true)
-        check("AC-WIN-02 canBecomeMain == false（不激活 App/不抢主窗）", panel.canBecomeMain == false)
-        check("AC-WIN-02 styleMask 含 nonactivatingPanel", panel.styleMask.contains(.nonactivatingPanel))
+        check("AC-WIN-02 canBecomeMain == false（不成为主窗口）", panel.canBecomeMain == false)
+        check("AC-WIN-02 使用可激活面板（键盘事件可进入）", !panel.styleMask.contains(.nonactivatingPanel))
+        check("唤起后应用已激活（键盘事件进入输入框）", NSApp.isActive == true)
         check("AC-WIN-03 isMovableByWindowBackground（可拖拽）", panel.isMovableByWindowBackground == true)
+        check("响应式窗口最小尺寸生效", panel.contentMinSize == NSSize(width: 340, height: 360))
+
+        let originalSize = panel.contentLayoutRect.size
+        panel.setContentSize(NSSize(width: 360, height: 420))
+        panel.contentView?.layoutSubtreeIfNeeded()
+        let contentBounds = panel.contentView?.bounds.size ?? .zero
+        let hostedSize = panel.contentView?.subviews.first?.frame.size ?? .zero
+        check("窗口缩放时页面根视图同步缩放",
+              abs(contentBounds.width - hostedSize.width) < 1 &&
+              abs(contentBounds.height - hostedSize.height) < 1)
+        panel.setContentSize(originalSize)
+
+        let longResult = String(repeating: "This is a long translated sentence that should wrap naturally. ", count: 8)
+        let resultHost = NSHostingView(rootView:
+            SelectableTextView(text: longResult, fontSize: 14)
+                .frame(width: 220)
+        )
+        resultHost.layoutSubtreeIfNeeded()
+        check("长译文按内容高度展开而不是固定在 40pt 小框",
+              resultHost.fittingSize.height > 80)
         check("AC-HK-01 唤起后浮窗 key window（可直接输入）", panel.isKeyWindow == true)
 
         // AC-WIN-08 失焦自动隐藏开关
@@ -248,7 +270,8 @@ enum UITests {
         check("AC-AI-01 无 Key 点击 AI → 引导填 Key（missingKey）", missing)
         check("AC-AI-06 失败保留系统译文", vm.systemTranslation == "keep this system translation")
 
-        guard ProcessInfo.processInfo.environment["OPTIONNOW_DEEPSEEK_BASE"] != nil else {
+        guard ProcessInfo.processInfo.environment["SENDLINGO_DEEPSEEK_BASE"] != nil
+                || ProcessInfo.processInfo.environment["OPTIONNOW_DEEPSEEK_BASE"] != nil else {
             skipped("AC-AI-03 流式输出", "未配置 mock 端点")
             skipped("AC-AI-07 入参正确", "未配置 mock 端点")
             skipped("AC-AI-06 无效Key可辨", "未配置 mock 端点")

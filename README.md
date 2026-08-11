@@ -1,4 +1,4 @@
-# Option Now
+# SendLingo
 
 > 中文写，地道发 —— 一个常驻 macOS 菜单栏的「中文输入即译」浮窗工具。
 
@@ -14,10 +14,10 @@
 - **零配置即时翻译**：输入停顿 200ms 自动出译，走系统本地翻译，无需 API Key、无需联网（语言包就绪时）。
 - **可选 AI 润色**：自带 DeepSeek Key 时，可对系统译文做更自然的优化，支持 **口语 / 正式 / 商务** 三种语气，流式输出。
 - **本地语言包管理**：自动检测中文 → 目标语言的就绪状态，未就绪时引导准备；语言包不可用时**绝不**偷偷调用 AI（避免隐私/费用意外）。
-- **常驻最前不打扰**：非激活浮窗，切到其他应用仍固定最前，且不抢走当前应用的输入焦点；可拖拽、记忆位置、输入/译文框高度可拖拽调节。
-- **历史与收藏**：自动保留最近翻译；可手动 ★ 收藏常用句（最多 3 条，置顶固定不淘汰），点击任意条目回填重译。
+- **唤起直接输入**：浮窗常驻最前，按快捷键后键盘焦点直接进入中文输入框；可拖拽、记忆位置、输入/译文框高度可拖拽调节。
+- **历史与收藏**：自动保留最近翻译；可手动 ★ 收藏任意数量的常用句（置顶固定不淘汰），点击任意条目回填中文并重译。
 - **克制的输出**：一键复制 / ⌘C（有选区复制选区、无选区复制全文）；不自动粘贴、不替换选中文本。
-- **隐私优先**：默认翻译完全在本机系统能力内完成、不出网；DeepSeek Key 仅存 macOS Keychain，配置文件无明文。
+- **隐私优先**：默认翻译完全在本机系统能力内完成、不出网；DeepSeek Key 仅保存在本机（文件权限 0600，仅当前用户可读），从不上传。
 
 ## 🖥 运行环境
 
@@ -32,7 +32,7 @@
 git clone https://github.com/Friday-s/OptionNow.git
 cd OptionNow
 ./build.sh release            # 编译并组装签名后的 .app
-open "dist/Option Now.app"    # 启动；菜单栏出现图标，按 ⌥ I 唤起
+open "dist/SendLingo.app"     # 启动；菜单栏出现图标，按 ⌥ I 唤起
 ```
 
 > 当前为本地 ad-hoc 签名，仅供自用/构建。若要分发给他人，需用 Developer ID 证书签名并做公证（notarization），否则对方打开会被 Gatekeeper 拦截。
@@ -44,24 +44,24 @@ open "dist/Option Now.app"    # 启动；菜单栏出现图标，按 ⌥ I 唤�
 1. 按 **⌥ I** 唤起浮窗（再按一次或 Esc 隐藏）。
 2. 选择目标语言（英/日/葡/西/韩/法/德，实际可用以系统语言包为准）。
 3. 用中文输入，停顿即出译文 → 点「复制」或 ⌘C 取走。
-4. 需要更自然的表达：在「设置」填入 DeepSeek API Key，点「↵ AI 生成」按所选语气润色。
+4. 需要更自然的表达：在「设置」填入 DeepSeek API Key，点「AI 生成」（或 ⌥↵）按所选语气润色。
 
 ### AI 润色（可选）
 
-- 在设置页填入 **DeepSeek API Key**（存入 Keychain）。
+- 在设置页填入 **DeepSeek API Key**（保存在本机，跨更新保留）。
 - 可选择模型 ID（默认 `deepseek-chat` 快速非推理；也可填 `deepseek-reasoner` 或你账号支持的其他 ID）。
-- 高级：通过环境变量 `OPTIONNOW_DEEPSEEK_BASE` 可指向任意 OpenAI 兼容端点（自建/其他服务）。
+- 高级：通过环境变量 `SENDLINGO_DEEPSEEK_BASE` 可指向任意 OpenAI 兼容端点（仍兼容旧变量 `OPTIONNOW_DEEPSEEK_BASE`）。
 
 ## 🔒 隐私
 
 - 默认系统翻译不连接任何自有/第三方服务器，不上传文本。
 - 仅当你主动点击「AI 生成」时，当前中文与系统译文才会发送给你配置的 DeepSeek。
 - 历史记录与收藏仅保存在本地，从不上传。
-- API Key 仅存 macOS Keychain。
+- API Key 仅保存在本机 `~/Library/Application Support/SendLingo/deepseek.key`（文件权限 0600，仅当前用户可读），可随时在设置页删除。不用 Keychain 是因为应用为 ad-hoc 签名，每次更新签名变化会导致 Keychain 项读不回、Key「丢失」。首次启动会从旧 OptionNow 目录复制已有 Key。
 
 ## 🧱 技术栈
 
-Swift + SwiftUI + AppKit：`NSPanel`（非激活浮窗）· `NSStatusItem`（菜单栏）· Carbon `RegisterEventHotKey`（全局快捷键，无需辅助功能权限）· Apple **Translation** 框架（系统翻译）· `URLSession` SSE（DeepSeek 流式）· Keychain。
+Swift + SwiftUI + AppKit：`NSPanel`（可激活置顶浮窗）· `NSStatusItem`（菜单栏）· Carbon `RegisterEventHotKey`（全局快捷键，无需辅助功能权限）· Apple **Translation** 框架（系统翻译）· `URLSession` SSE（DeepSeek 流式）· 本地凭据文件（0600）。
 
 ## 📁 项目结构
 
@@ -69,7 +69,7 @@ Swift + SwiftUI + AppKit：`NSPanel`（非激活浮窗）· `NSStatusItem`（菜
 Sources/OptionNow/
   OptionNowApp.swift     入口（@main）
   Core/                  AppDelegate / FloatingPanel / PanelController /
-                         HotKeyManager / KeychainHelper / Notifications
+                         HotKeyManager / CredentialStore / Notifications
   Models/                AppLanguage / Tone / LocalLanguageStatus /
                          TranslationState / TranslationHistoryItem / HotKeyConfig
   Services/              SettingsStore / HistoryStore / LanguagePackService / AIOptimizeService
@@ -84,8 +84,8 @@ build.sh                 构建并组装 .app
 内置两个无头测试入口（跑出货代码路径）：
 
 ```bash
-BIN="$(swift build -c release --show-bin-path)/OptionNow"
-"$BIN" --selftest    # Keychain / 历史 / 收藏 / 设置 / 快捷键 / 错误文案
+BIN="$(swift build -c release --show-bin-path)/SendLingo"
+"$BIN" --selftest    # 凭据存取 / 历史 / 收藏 / 设置 / 快捷键 / 错误文案
 "$BIN" --uitest      # 在真实运行时驱动浮窗 + 翻译管线 + 复制 + AI 流式（配合本地 mock）
 ```
 

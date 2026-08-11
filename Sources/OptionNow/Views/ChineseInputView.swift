@@ -102,6 +102,10 @@ struct ChineseInputView: NSViewRepresentable {
         tv.isHorizontallyResizable = false
         tv.autoresizingMask = [.width]
         tv.textContainer?.widthTracksTextView = true
+        // The main view is recreated when leaving history. Seed the native text view
+        // from the binding so a selected history item's Chinese source is visible on
+        // that very first render; resetToken only handles later external changes.
+        tv.string = text
         tv.resultProvider = resultProvider
         tv.onCopyResult = onCopyResult
         scroll.documentView = tv
@@ -110,6 +114,7 @@ struct ChineseInputView: NSViewRepresentable {
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.parent = self // keep the coordinator's bindings current
         guard let tv = scroll.documentView as? PlaceholderTextView else { return }
         if tv.font?.pointSize != fontSize { tv.font = NSFont.systemFont(ofSize: fontSize) }
         tv.placeholder = placeholder
