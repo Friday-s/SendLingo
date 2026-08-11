@@ -40,6 +40,9 @@ enum UITests {
         // Let the panel + SwiftUI view mount and language statuses prime.
         panelController.show()
         _ = await waitUntil(3) { panelController.panel?.isVisible == true }
+        _ = await waitUntil(2) {
+            NSApp.isActive && panelController.panel?.isKeyWindow == true
+        }
 
         let savedKey = CredentialStore.load() // preserve the user's real key
 
@@ -96,6 +99,16 @@ enum UITests {
         check("长译文按内容高度展开而不是固定在 40pt 小框",
               resultHost.fittingSize.height > 80)
         check("AC-HK-01 唤起后浮窗 key window（可直接输入）", panel.isKeyWindow == true)
+
+        pc.hide()
+        DistributedNotificationCenter.default().postNotificationName(
+            .sendLingoShowPanel,
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+        let openedFromLauncher = await waitUntil(2) { pc.isVisible }
+        check("OptionNow 通知可唤起 SendLingo 浮窗", openedFromLauncher)
 
         // AC-WIN-08 失焦自动隐藏开关
         settings.autoHideOnBlur = false

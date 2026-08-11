@@ -7,4 +7,6 @@ extension Notification.Name {
     static let optionNowOpenSettings = Notification.Name("OptionNow.openSettings")
     /// Posted after ⌘C copied the translation result (to flash the "已复制" toast).
     static let optionNowResultCopied = Notification.Name("OptionNow.resultCopied")
+    /// Posted by local launchers to reveal SendLingo's translation panel.
+    static let sendLingoShowPanel = Notification.Name("com.ivor.sendlingo.show-panel")
 }

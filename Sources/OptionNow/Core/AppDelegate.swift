@@ -41,6 +41,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: .optionNowOpenSettings, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.openSettings() }
         }
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(showPanelFromExternalRequest(_:)),
+            name: .sendLingoShowPanel,
+            object: nil
+        )
 
         // Prime language-pack statuses for the picker (AC-LP-01).
         Task { await LanguagePackService.shared.refreshAll() }
@@ -117,6 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openPanel() { panelController.show() }
+
+    @objc private func showPanelFromExternalRequest(_ notification: Notification) {
+        panelController.show()
+    }
 
     @objc private func quit() { NSApp.terminate(nil) }
 
