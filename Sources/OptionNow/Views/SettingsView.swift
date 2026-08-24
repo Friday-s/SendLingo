@@ -43,7 +43,9 @@ struct SettingsView: View {
             if settings.hotkeyConflict {
                 Label("该快捷键注册失败（可能被系统或其他 App 占用），请更换",
                       systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 11)).foregroundStyle(.orange)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.warning)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -75,33 +77,46 @@ struct SettingsView: View {
                 .fixedSize()
             }
             Text("填写 DeepSeek 账号支持的模型 ID。deepseek-chat 为快速（非推理）模型；如需特定版本（如 fast / 某代号）按服务商命名填入即可。")
-                .font(.system(size: 10)).foregroundStyle(.tertiary)
+                .font(DS.Font.caption())
+                .foregroundStyle(DS.Color.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 8) {
+            HStack(spacing: DS.Space.sm) {
                 Button("保存") { saveKey() }
+                    .buttonStyle(DSPrimaryButtonStyle())
+                    .fixedSize()
                     .disabled(keyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button("验证") { Task { await validateKey() } }
+                    .buttonStyle(DSSecondaryButtonStyle())
+                    .fixedSize()
                     .disabled(validating || (!keyPresent && keyInput.trimmingCharacters(in: .whitespaces).isEmpty))
                 Button("删除", role: .destructive) { deleteKey() }
+                    .buttonStyle(DSSecondaryButtonStyle(tint: DS.Color.danger))
+                    .fixedSize()
                     .disabled(!keyPresent)
                 if validating { ProgressView().controlSize(.small) }
-                Spacer()
+                Spacer(minLength: 0)
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: DS.Space.xs) {
                 Image(systemName: keyPresent ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(keyPresent ? .green : .secondary)
+                    .foregroundStyle(keyPresent ? DS.Color.success : DS.Color.textSecondary)
                 Text(keyPresent ? "已保存（本地，跨更新保留）" : "未配置 Key（系统翻译不受影响）")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let msg = keyMessage {
                 Text(msg.text)
-                    .font(.system(size: 11))
-                    .foregroundStyle(msg.ok ? .green : .orange)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(msg.ok ? DS.Color.success : DS.Color.warning)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Text("启用 AI 优化时，当前中文与系统译文会发送给你配置的 DeepSeek 服务。默认系统翻译不需要第三方 API Key。")
-                .font(.system(size: 10)).foregroundStyle(.tertiary)
+                .font(DS.Font.caption())
+                .foregroundStyle(DS.Color.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -110,20 +125,25 @@ struct SettingsView: View {
     private var languagePackSection: some View {
         Section {
             ForEach(AppLanguage.firstBatch) { lang in
-                HStack {
-                    Text(lang.displayName).font(.system(size: 12))
-                    Spacer()
+                HStack(spacing: DS.Space.sm) {
+                    Text(lang.displayName)
+                        .font(DS.Font.body())
+                        .foregroundStyle(DS.Color.textPrimary)
+                    Spacer(minLength: DS.Space.xs)
                     Text(langService.cachedStatus(for: lang.code).shortLabel)
-                        .font(.system(size: 11))
-                        .foregroundStyle(langService.cachedStatus(for: lang.code) == .installed ? .green : .secondary)
+                        .font(DS.Font.caption())
+                        .foregroundStyle(langService.cachedStatus(for: lang.code) == .installed ? DS.Color.success : DS.Color.textSecondary)
+                        .fixedSize()
                 }
             }
         } header: {
             HStack {
                 Text("本地语言包状态")
-                Spacer()
+                Spacer(minLength: DS.Space.sm)
                 Button("刷新") { Task { await langService.refreshAll() } }
-                    .buttonStyle(.borderless).font(.system(size: 11))
+                    .buttonStyle(.borderless)
+                    .font(DS.Font.caption(.medium))
+                    .foregroundStyle(DS.Color.accent)
             }
         }
     }
@@ -134,6 +154,8 @@ struct SettingsView: View {
         Section("历史记录") {
             Toggle("保存翻译历史（仅本地）", isOn: $settings.historyEnabled)
             Button("清空全部历史", role: .destructive) { HistoryStore.shared.clear() }
+                .buttonStyle(DSSecondaryButtonStyle(tint: DS.Color.danger))
+                .fixedSize()
         }
     }
 
@@ -144,11 +166,13 @@ struct SettingsView: View {
             Picker("主题", selection: $settings.theme) {
                 ForEach(AppTheme.allCases) { Text($0.displayName).tag($0) }
             }
-            HStack {
+            HStack(spacing: DS.Space.md) {
                 Text("字号")
                 Slider(value: $settings.fontSize, in: 11...20, step: 1)
                 Text("\(Int(settings.fontSize))")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 22)
+                    .font(DS.Font.caption().monospacedDigit())
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .frame(width: 22)
             }
             Stepper("防抖时延：\(settings.debounceMs) ms",
                     value: $settings.debounceMs, in: 100...600, step: 50)

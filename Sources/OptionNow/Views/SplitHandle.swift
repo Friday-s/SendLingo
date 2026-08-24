@@ -20,8 +20,10 @@ final class ResizeHandleNSView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.separatorColor.setFill()
-        let lineH: CGFloat = 1
+        // Hairline in the family stroke token, so the divider matches every other
+        // separator in the panel instead of using its own weight.
+        NSColor(DS.Color.stroke).setFill()
+        let lineH = DS.Stroke.border
         NSRect(x: 0, y: (bounds.height - lineH) / 2, width: bounds.width, height: lineH).fill()
     }
 

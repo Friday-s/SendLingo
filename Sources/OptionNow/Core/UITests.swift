@@ -110,6 +110,16 @@ enum UITests {
         let openedFromLauncher = await waitUntil(2) { pc.isVisible }
         check("OptionNow 通知可唤起 SendLingo 浮窗", openedFromLauncher)
 
+        DistributedNotificationCenter.default().postNotificationName(
+            .sendLingoHidePanel,
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+        let hiddenFromLauncher = await waitUntil(2) { !pc.isVisible }
+        check("OptionNow 再次点击可收起 SendLingo 浮窗", hiddenFromLauncher)
+        pc.show()
+
         // AC-WIN-08 失焦自动隐藏开关
         settings.autoHideOnBlur = false
         pc.show()

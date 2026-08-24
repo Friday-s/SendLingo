@@ -23,12 +23,9 @@ struct TranslatorView: View {
             }
         }
         .frame(minWidth: 340, idealWidth: 420, minHeight: 360, idealHeight: 560)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
-        )
+        // Family panel chrome: native glass, hairline edge, one diffuse shadow —
+        // the same recipe as the OptionNow dial and the Orbit menu-bar panel.
+        .dsPanel()
         .preferredColorScheme(settings.theme.colorScheme)
         // System translation is driven here: a new config (or invalidate) re-runs this.
         // The action is marked @Sendable so it is nonisolated — the non-Sendable
@@ -59,14 +56,15 @@ struct TranslatorView: View {
     // MARK: - Top bar (PRD §9.1)
 
     private var topBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DS.Space.sm) {
             Text("SendLingo")
-                .font(.system(size: 13, weight: .semibold))
+                .font(DS.Font.h4())
+                .foregroundStyle(DS.Color.textPrimary)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
             languageMenu
             statusTag(vm.currentStatus)
-            Spacer()
+            Spacer(minLength: DS.Space.xs)
             iconButton("clock.arrow.circlepath", help: "历史") { vm.isShowingHistory.toggle() }
             iconButton("gearshape", help: "设置") {
                 NotificationCenter.default.post(name: .optionNowOpenSettings, object: nil)
@@ -75,8 +73,8 @@ struct TranslatorView: View {
                 NotificationCenter.default.post(name: .optionNowHide, object: nil)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, DS.Space.md)
+        .padding(.vertical, DS.Space.sm)
     }
 
     private var languageMenu: some View {
@@ -91,11 +89,12 @@ struct TranslatorView: View {
                 .disabled(!status.isSelectable)
             }
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: DS.Space.xs) {
                 Text(AppLanguage.named(vm.targetLanguage).displayName)
-                    .font(.system(size: 12))
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+                    .font(DS.Font.caption(.medium))
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
             }
+            .foregroundStyle(DS.Color.accent)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -104,19 +103,16 @@ struct TranslatorView: View {
     @ViewBuilder
     private func statusTag(_ status: LocalLanguageStatus) -> some View {
         if status != .installed && status != .unknown {
-            Text(status.shortLabel)
-                .font(.system(size: 10))
-                .padding(.horizontal, 6).padding(.vertical, 2)
-                .background(Color.orange.opacity(0.18), in: Capsule())
-                .foregroundStyle(.orange)
+            DSBadge(text: status.shortLabel, tint: DS.Color.warning)
+                .fixedSize()
         }
     }
 
     private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 12))
+            Image(systemName: symbol)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(DSIconButtonStyle(size: 24))
         .help(help)
     }
 
@@ -185,18 +181,21 @@ struct TranslatorView: View {
                              resultProvider: { vm.currentTranslationText },
                              onCopyResult: { onResultCopied() })
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            HStack {
+            HStack(spacing: DS.Space.sm) {
                 if vm.atCharLimit {
                     Text("已达 1000 字符上限")
-                        .font(.system(size: 10)).foregroundStyle(.orange)
+                        .font(DS.Font.caption())
+                        .foregroundStyle(DS.Color.warning)
+                        .lineLimit(1)
                 }
-                Spacer()
+                Spacer(minLength: DS.Space.xs)
                 Text("\(vm.charCount)/\(TranslatorViewModel.inputCharLimit)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(vm.atCharLimit ? .orange : .secondary)
+                    .font(DS.Font.caption().monospacedDigit())
+                    .foregroundStyle(vm.atCharLimit ? DS.Color.warning : DS.Color.textSecondary)
+                    .fixedSize()
             }
         }
-        .padding(.horizontal, 12).padding(.top, 8)
+        .padding(.horizontal, DS.Space.md).padding(.top, DS.Space.sm)
     }
 
     // MARK: - Tone (AC-AI-04) — only relevant when AI entry is shown
@@ -204,10 +203,9 @@ struct TranslatorView: View {
     @ViewBuilder
     private var toneBar: some View {
         if settings.aiEnabled {
-            HStack {
-                Text("TRANSLATION").font(.system(size: 9, weight: .semibold))
-                    .tracking(1.5).foregroundStyle(.secondary)
-                Spacer()
+            HStack(spacing: DS.Space.sm) {
+                eyebrowLabel
+                Spacer(minLength: DS.Space.xs)
                 Picker("", selection: $vm.tone) {
                     ForEach(Tone.allCases) { Text($0.displayName).tag($0) }
                 }
@@ -216,15 +214,23 @@ struct TranslatorView: View {
                 .frame(minWidth: 150, maxWidth: 220)
                 .layoutPriority(1)
             }
-            .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 2)
+            .padding(.horizontal, DS.Space.md).padding(.top, DS.Space.md).padding(.bottom, 2)
         } else {
             HStack {
-                Text("TRANSLATION").font(.system(size: 9, weight: .semibold))
-                    .tracking(1.5).foregroundStyle(.secondary)
+                eyebrowLabel
                 Spacer()
             }
-            .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 2)
+            .padding(.horizontal, DS.Space.md).padding(.top, DS.Space.md).padding(.bottom, 2)
         }
+    }
+
+    /// Accent eyebrow — the same treatment `DSSectionHeader` uses family-wide.
+    private var eyebrowLabel: some View {
+        Text("TRANSLATION")
+            .font(DS.Font.caption(.semibold))
+            .tracking(1.2)
+            .foregroundStyle(DS.Color.accent)
+            .fixedSize()
     }
 
     // MARK: - Translation result area
@@ -232,7 +238,7 @@ struct TranslatorView: View {
     @ViewBuilder
     private var translationArea: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: DS.Space.md) {
                 switch vm.phase {
                 case .languagePackRequired:
                     preparePackView
@@ -243,28 +249,32 @@ struct TranslatorView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12).padding(.vertical, 8)
+            .padding(.horizontal, DS.Space.md).padding(.vertical, DS.Space.sm)
         }
         .frame(maxHeight: .infinity)
     }
 
     private var preparePackView: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DS.Space.md) {
             Text("需要先准备该目标语言的本地语言包")
-                .font(.system(size: 13)).foregroundStyle(.secondary)
+                .font(DS.Font.body())
+                .foregroundStyle(DS.Color.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
             Button {
                 vm.prepareLanguagePack()
             } label: {
                 Label("准备语言包", systemImage: "arrow.down.circle")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(DSPrimaryButtonStyle())
         }
     }
 
     private var preparingView: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DS.Space.sm) {
             ProgressView().controlSize(.small)
-            Text("正在准备语言包…").font(.system(size: 13)).foregroundStyle(.secondary)
+            Text("正在准备语言包…")
+                .font(DS.Font.body())
+                .foregroundStyle(DS.Color.textSecondary)
         }
     }
 
@@ -276,18 +286,21 @@ struct TranslatorView: View {
             SelectableTextView(text: vm.systemTranslation, fontSize: settings.fontSize)
                 .frame(minHeight: 40)
         } else if vm.phase == .translating {
-            HStack(spacing: 8) {
+            HStack(spacing: DS.Space.sm) {
                 ProgressView().controlSize(.small)
-                Text("翻译中…").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("翻译中…")
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.textSecondary)
             }
         } else if vm.errorMessage == nil {
             Text("译文会在这里即时显示")
-                .font(.system(size: 13)).foregroundStyle(.tertiary)
+                .font(DS.Font.body())
+                .foregroundStyle(DS.Color.textTertiary)
         }
 
         // AI optimized translation (streaming)
         if !vm.aiTranslation.isEmpty || vm.phase == .optimizing {
-            HStack(spacing: 6) {
+            HStack(spacing: DS.Space.xs) {
                 sectionLabel("AI 优化译文")
                 if vm.phase == .optimizing {
                     ProgressView().controlSize(.mini)
@@ -301,12 +314,15 @@ struct TranslatorView: View {
 
         // Back-translation (回译校验) — verify the meaning of what you're about to send.
         if vm.isBackTranslating || !vm.backTranslation.isEmpty || vm.backError != nil {
-            HStack(spacing: 6) {
+            HStack(spacing: DS.Space.xs) {
                 sectionLabel("回译校验（中文）")
                 if vm.isBackTranslating { ProgressView().controlSize(.mini) }
             }
             if let err = vm.backError {
-                Text(err).font(.system(size: 12)).foregroundStyle(.orange)
+                Text(err)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.warning)
+                    .fixedSize(horizontal: false, vertical: true)
             } else if !vm.backTranslation.isEmpty {
                 SelectableTextView(text: vm.backTranslation,
                                    fontSize: settings.fontSize,
@@ -319,32 +335,37 @@ struct TranslatorView: View {
         // Error message (kept below the system translation; AC-AI-06 keeps system text)
         if let msg = vm.errorMessage {
             Text(msg)
-                .font(.system(size: 12))
-                .foregroundStyle(.orange)
+                .font(DS.Font.caption())
+                .foregroundStyle(DS.Color.warning)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 2)
         }
     }
 
     private func sectionLabel(_ text: String) -> some View {
-        Text(text).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+        Text(text)
+            .font(DS.Font.caption(.medium))
+            .foregroundStyle(DS.Color.textSecondary)
     }
 
     // MARK: - Bottom bar (PRD §9.1)
 
     private var bottomBar: some View {
+        // Narrow windows drop the hint rather than the actions, so the primary
+        // buttons are never clipped.
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
+            HStack(spacing: DS.Space.sm) {
                 actionButtons
-                Spacer(minLength: 8)
+                Spacer(minLength: DS.Space.sm)
                 shortcutHint
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: DS.Space.sm) {
                 actionButtons
                 Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 9)
+        .padding(.horizontal, DS.Space.md).padding(.vertical, DS.Space.sm)
     }
 
     @ViewBuilder
@@ -352,34 +373,34 @@ struct TranslatorView: View {
         if settings.aiEnabled {
             Button(action: handleAITap) {
                 Label("AI 生成", systemImage: "sparkles")
-                    .font(.system(size: 12))
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(DSSecondaryButtonStyle())
             .opacity(aiGreyed ? 0.5 : 1)
+            .fixedSize()
             .help(CredentialStore.hasKey ? "用 DeepSeek 优化当前译文（⌥↵）" : "填写 DeepSeek API Key 后可使用")
         }
 
         Button(action: { vm.backTranslate() }) {
             Label("回译", systemImage: "arrow.uturn.left")
-                .font(.system(size: 12))
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(DSSecondaryButtonStyle())
+        .fixedSize()
         .disabled(vm.currentTranslationText.isEmpty || vm.isBackTranslating)
         .help("把译文再译回中文，核对意思再发")
 
         Button(action: copyAll) {
             Label(showCopied ? "已复制" : "复制",
                   systemImage: showCopied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 12))
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(DSSecondaryButtonStyle(tint: showCopied ? DS.Color.success : nil))
+        .fixedSize()
         .disabled(vm.currentTranslationText.isEmpty)
     }
 
     private var shortcutHint: some View {
         Text((settings.aiEnabled ? "⌥↵ AI · " : "") + "⌘C 复制 · Esc 关闭 · \(settings.hotkey.displayString) 开关")
-            .font(.system(size: 10))
-            .foregroundStyle(.tertiary)
+            .font(DS.Font.caption())
+            .foregroundStyle(DS.Color.textTertiary)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
     }

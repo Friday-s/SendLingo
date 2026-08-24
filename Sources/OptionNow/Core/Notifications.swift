@@ -9,4 +9,6 @@ extension Notification.Name {
     static let optionNowResultCopied = Notification.Name("OptionNow.resultCopied")
     /// Posted by local launchers to reveal SendLingo's translation panel.
     static let sendLingoShowPanel = Notification.Name("com.ivor.sendlingo.show-panel")
+    /// Posted by local launchers to hide SendLingo's translation panel without quitting.
+    static let sendLingoHidePanel = Notification.Name("com.ivor.sendlingo.hide-panel")
 }

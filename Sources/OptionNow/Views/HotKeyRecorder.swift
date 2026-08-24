@@ -15,6 +15,8 @@ struct HotKeyRecorder: View {
             Text(recording ? "请按下快捷键…" : settings.hotkey.displayString)
                 .frame(minWidth: 110)
         }
+        // Armed state reads as accent-tinted, matching the OptionNow recorder.
+        .buttonStyle(DSSecondaryButtonStyle(tint: recording ? DS.Color.accent : nil))
         .onDisappear { stop() }
     }
 

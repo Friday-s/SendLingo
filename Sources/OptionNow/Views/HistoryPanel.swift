@@ -10,21 +10,32 @@ struct HistoryPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("历史记录").font(.system(size: 12, weight: .semibold))
-                Spacer()
+            HStack(spacing: DS.Space.sm) {
+                Text("历史记录")
+                    .font(DS.Font.h4())
+                    .foregroundStyle(DS.Color.textPrimary)
+                Spacer(minLength: DS.Space.xs)
                 Button("清空最近") { history.clear() }
-                    .buttonStyle(.borderless).font(.system(size: 11))
+                    .buttonStyle(DSSecondaryButtonStyle())
+                    .fixedSize()
                     .disabled(history.items.isEmpty)
                 Button("返回") { onClose() }
-                    .buttonStyle(.borderless).font(.system(size: 11))
+                    .buttonStyle(DSSecondaryButtonStyle())
+                    .fixedSize()
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
+            .padding(.horizontal, DS.Space.md).padding(.vertical, DS.Space.sm)
             Divider()
 
             if history.favorites.isEmpty && history.items.isEmpty {
                 Spacer()
-                Text("暂无历史记录").foregroundStyle(.secondary).font(.system(size: 12))
+                VStack(spacing: DS.Space.sm) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundStyle(DS.Color.textTertiary)
+                    Text("暂无历史记录")
+                        .font(DS.Font.body())
+                        .foregroundStyle(DS.Color.textSecondary)
+                }
                 Spacer()
             } else {
                 List {
@@ -42,7 +53,9 @@ struct HistoryPanel: View {
                     }
                     Section("最近") {
                         if history.items.isEmpty {
-                            Text("暂无最近记录").font(.system(size: 11)).foregroundStyle(.tertiary)
+                            Text("暂无最近记录")
+                                .font(DS.Font.caption())
+                                .foregroundStyle(DS.Color.textTertiary)
                         }
                         ForEach(history.items) { item in
                             HistoryRow(item: item,
@@ -72,34 +85,41 @@ private struct HistoryRow: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: DS.Space.sm) {
             // ★ favorite toggle
             Button(action: onToggleFavorite) {
                 Image(systemName: isFavorite ? "star.fill" : "star")
-                    .font(.system(size: 11))
-                    .foregroundStyle(isFavorite ? .yellow : .secondary)
+                    .foregroundStyle(isFavorite ? DS.Color.warning : DS.Color.textSecondary)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(DSIconButtonStyle(size: 22))
             .opacity(isFavorite ? 1 : (hovering ? 1 : 0.5))
             .help(isFavorite ? "取消收藏" : "收藏（置顶固定）")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.sourceText)
-                    .font(.system(size: 12)).lineLimit(2)
+                    .font(DS.Font.body())
+                    .foregroundStyle(DS.Color.textPrimary)
+                    .lineLimit(2)
                 Text("→ \(AppLanguage.named(item.targetLanguage).displayName)  ·  \(item.systemTranslation)")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: DS.Space.xs)
             if showDelete {
                 Button(action: onDelete) {
-                    Image(systemName: "trash").font(.system(size: 11))
+                    Image(systemName: "trash")
+                        .foregroundStyle(DS.Color.danger)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(DSIconButtonStyle(size: 22))
                 .opacity(hovering ? 1 : 0.35)
                 .help("删除这条")
             }
         }
-        .contentShape(Rectangle())
+        .padding(.horizontal, DS.Space.sm)
+        .padding(.vertical, DS.Space.sm)
+        .dsCard(hovering ? DS.Color.cardElevated : Color.clear, stroke: hovering ? DS.Color.stroke : Color.clear)
+        .contentShape(DS.cardShape)
         .onTapGesture { onTap() }
         .onHover { hovering = $0 }
         .padding(.vertical, 2)
