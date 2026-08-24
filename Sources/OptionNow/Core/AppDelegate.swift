@@ -47,6 +47,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .sendLingoShowPanel,
             object: nil
         )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(hidePanelFromExternalRequest(_:)),
+            name: .sendLingoHidePanel,
+            object: nil
+        )
 
         // Prime language-pack statuses for the picker (AC-LP-01).
         Task { await LanguagePackService.shared.refreshAll() }
@@ -126,6 +132,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showPanelFromExternalRequest(_ notification: Notification) {
         panelController.show()
+    }
+
+    @objc private func hidePanelFromExternalRequest(_ notification: Notification) {
+        panelController.hide()
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
